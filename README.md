@@ -70,16 +70,6 @@ npm run dev
 └── database/              # Database schemas
 ```
 
-## 🔌 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/projects | Create a new project |
-| GET | /api/projects | Get all projects |
-| GET | /api/projects/:id | Get a specific project |
-| PUT | /api/projects/:id | Update a project |
-| DELETE | /api/projects/:id | Delete a project |
-
 ## 🎨 Technologies
 
 ### Frontend
@@ -124,8 +114,6 @@ VITE_API_URL=http://localhost:5000/api
 
 ## 🚀 Running the Application
 
-### Development Mode
-
 ```bash
 # Terminal 1 - Backend
 cd server
@@ -134,47 +122,4 @@ npm run dev
 # Terminal 2 - Frontend
 cd client
 npm run dev
-```
-
-### Production Mode
-
-```bash
-# Build frontend
-cd client
-npm run build
-
-# Start backend
-cd server
-npm start
-```
-
-## 🧪 Testing
-
-```bash
-# Backend tests
-cd server
-npm test
-
-# Frontend tests
-cd client
-npm test
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🙏 Acknowledgments
-
-- Built for the AI-Powered Product Intelligence System project
-- Designed for future AI and LangChain integration
-- Production-ready architecture
 ```
