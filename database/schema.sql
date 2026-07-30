@@ -1,5 +1,5 @@
--- Create projects table
 CREATE TABLE IF NOT EXISTS projects (
+-- Create projects table
     id SERIAL PRIMARY KEY,
     project_name VARCHAR(255) NOT NULL,
     industry VARCHAR(100) NOT NULL,

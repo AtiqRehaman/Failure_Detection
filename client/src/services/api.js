@@ -82,4 +82,23 @@ export const deleteProject = async (id) => {
   }
 };
 
+// Fetch market intelligence for a specific industry & project
+export const getMarketIntelligence = async (industry, projectName, targetMarket) => {
+  // Simulate API delay
+  await new Promise((resolve) => setTimeout(resolve, 800));
+
+  return {
+    marketSaturationIndex: 68, // Out of 100
+    competitorCount: 14,
+    fundingTrend: "+18.4%", // Year over Year
+    keyCompetitors: [
+      { name: "EcoNexus Tech", funding: "₹2.5 Cr", marketShare: "32%" },
+      { name: "GreenGrid Labs", funding: "₹1.1 Cr", marketShare: "21%" },
+      { name: "PureEarth Innovations", funding: "₹85 L", marketShare: "14%" }
+    ],
+    marketOpportunityGap: "High demand in Tier-2/Tier-3 regional markets with low localized competition.",
+    trendingKeywords: ["Sustainability", "CleanTech", "Carbon Offset", "ESG Compliance"]
+  };
+};
+
 export default apiClient;

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ProjectSubmission from './pages/ProjectSubmission';
 import Dashboard from './pages/Dashboard';
+import ProjectAnalysis from './pages/ProjectAnalysis';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/submit" element={<ProjectSubmission />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/analysis/:id" element={<ProjectAnalysis />} />
         </Routes>
       </div>
     </Router>

@@ -14,6 +14,7 @@ router.post(
 
 router.get('/', projectController.getProjects);
 router.get('/dashboard/stats', projectController.getDashboardStats);
+router.get('/:id/analysis', projectController.getProjectAnalysis);
 router.get('/:id', projectController.getProject);
 
 router.put(
