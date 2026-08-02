@@ -40,7 +40,7 @@ const ProjectAnalysis = () => {
   const fetchProjectAnalysis = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/projects/${id}/analysis`);
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/projects/${id}/analysis`);
       const { project: projectData, analysis: analysisData } = response.data.data;
       setProject(projectData);
       setAnalysis(analysisData);
