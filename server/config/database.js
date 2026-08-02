@@ -25,8 +25,8 @@ const testConnection = async () => {
         client.release();
         return true;
     } catch (error) {
-        console.error('❌ PostgreSQL connection error:', error.message);
-        return false;
+        console.dir(error, { depth: null });
+    return false;
     }
 };
 
