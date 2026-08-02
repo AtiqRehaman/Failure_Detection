@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -10,7 +11,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
   Line,
   Area,
   ComposedChart,
@@ -18,41 +18,44 @@ import {
 import { getProjects } from "../services/api";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Toast from "../components/Toast";
-import { getMarketIntelligence } from '../services/api';
 import MarketIntelligencePanel from "./MarketIntelligencePanel";
 import {
   FaProjectDiagram,
   FaIndustry,
-  FaUsers,
   FaRupeeSign,
   FaChartLine,
   FaArrowUp,
-  FaCalendarAlt,
-  FaBolt, FaSearch, FaExclamationTriangle,
-  FaBuilding,
+  FaSearch,
+  FaTimes,
+  FaEye,
+  FaUndo,
 } from "react-icons/fa";
 
+const COLORS = [
+  "#0f172a",
+  "#334155",
+  "#475569",
+  "#64748b",
+  "#94a3b8",
+  "#cbd5e1",
+  "#e2e8f0",
+];
+
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState([]);
-  const [stats, setStats] = useState({
-    totalProjects: 0,
-    industryDistribution: [],
-    recentProjects: [],
-  });
   const [toast, setToast] = useState(null);
-  const [timeRange, setTimeRange] = useState("all");
 
-  const COLORS = [
-    "#0f172a",
-    "#334155",
-    "#475569",
-    "#64748b",
-    "#94a3b8",
-    "#cbd5e1",
-    "#e2e8f0",
-  ];
-  const TREND_COLORS = ["#0f172a", "#475569", "#64748b", "#94a3b8", "#cbd5e1"];
+  // ---------------------------------------------------------
+  // SEARCH & FILTER STATES
+  // ---------------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIndustry, setSelectedIndustry] = useState("all");
+  const [selectedBusinessModel, setSelectedBusinessModel] = useState("all");
+  const [selectedTargetMarket, setSelectedTargetMarket] = useState("all");
+  const [selectedBudgetRange, setSelectedBudgetRange] = useState("all");
+  const [selectedDateRange, setSelectedDateRange] = useState("all");
 
   const [selectedProject, setSelectedProject] = useState(null);
 
@@ -64,15 +67,13 @@ const Dashboard = () => {
     try {
       setLoading(true);
       const response = await getProjects();
-      const { data, stats: dashboardStats } = response;
+      const { data } = response;
 
       const projectList = Array.isArray(data) ? data : [];
       setProjects(projectList);
-      setStats({
-        totalProjects: dashboardStats?.totalProjects || projectList.length || 0,
-        industryDistribution: dashboardStats?.industryDistribution || [],
-        recentProjects: projectList.slice(0, 5),
-      });
+      if (projectList.length > 0) {
+        setSelectedProject(projectList[0]);
+      }
     } catch (error) {
       setToast({
         message: "Failed to load dashboard data",
@@ -83,50 +84,168 @@ const Dashboard = () => {
     }
   };
 
-  const calculateAdditionalStats = () => {
-    if (!Array.isArray(projects) || projects.length === 0) {
+  // ---------------------------------------------------------
+  // EXTRACT DYNAMIC UNIQUE FILTER OPTIONS
+  // ---------------------------------------------------------
+  const filterOptions = useMemo(() => {
+    const industries = new Set();
+    const businessModels = new Set();
+    const targetMarkets = new Set();
+
+    projects.forEach((p) => {
+      if (p?.industry) industries.add(p.industry);
+      if (p?.business_model) businessModels.add(p.business_model);
+      if (p?.target_market) targetMarkets.add(p.target_market);
+    });
+
+    return {
+      industries: Array.from(industries).sort(),
+      businessModels: Array.from(businessModels).sort(),
+      targetMarkets: Array.from(targetMarkets).sort(),
+    };
+  }, [projects]);
+
+  // ---------------------------------------------------------
+  // COMBINED SEARCH + FILTERING LOGIC (SORTED BY DATE)
+  // ---------------------------------------------------------
+  const filteredProjects = useMemo(() => {
+    const results = projects.filter((p) => {
+      // 1. Search Query Filter
+      const query = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !query ||
+        p?.project_name?.toLowerCase().includes(query) ||
+        p?.industry?.toLowerCase().includes(query) ||
+        p?.business_model?.toLowerCase().includes(query) ||
+        p?.target_market?.toLowerCase().includes(query);
+
+      // 2. Industry Filter
+      const matchesIndustry =
+        selectedIndustry === "all" || p?.industry === selectedIndustry;
+
+      // 3. Business Model Filter
+      const matchesBusinessModel =
+        selectedBusinessModel === "all" ||
+        p?.business_model === selectedBusinessModel;
+
+      // 4. Target Market Filter
+      const matchesTargetMarket =
+        selectedTargetMarket === "all" ||
+        p?.target_market === selectedTargetMarket;
+
+      // 5. Budget Range Filter
+      let matchesBudget = true;
+      const budgetNum = Number(p?.budget) || 0;
+      if (selectedBudgetRange === "under1l") {
+        matchesBudget = budgetNum < 100000;
+      } else if (selectedBudgetRange === "1l_10l") {
+        matchesBudget = budgetNum >= 100000 && budgetNum <= 1000000;
+      } else if (selectedBudgetRange === "above10l") {
+        matchesBudget = budgetNum > 1000000;
+      }
+
+      // 6. Date Range Filter
+      let matchesDate = true;
+      if (selectedDateRange !== "all" && p?.created_at) {
+        const projectDate = new Date(p.created_at);
+        const now = new Date();
+        if (selectedDateRange === "week") {
+          const weekAgo = new Date(now.setDate(now.getDate() - 7));
+          matchesDate = projectDate >= weekAgo;
+        } else if (selectedDateRange === "month") {
+          const monthAgo = new Date(now.setMonth(now.getMonth() - 1));
+          matchesDate = projectDate >= monthAgo;
+        }
+      }
+
+      return (
+        matchesSearch &&
+        matchesIndustry &&
+        matchesBusinessModel &&
+        matchesTargetMarket &&
+        matchesBudget &&
+        matchesDate
+      );
+    });
+
+    // Sort descending by date so most recent projects are first
+    return results.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  }, [
+    projects,
+    searchQuery,
+    selectedIndustry,
+    selectedBusinessModel,
+    selectedTargetMarket,
+    selectedBudgetRange,
+    selectedDateRange,
+  ]);
+
+  // Top 10 most recent projects for the table
+  const top10Projects = useMemo(() => {
+    return filteredProjects.slice(0, 10);
+  }, [filteredProjects]);
+
+  // Reset all filters
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setSelectedIndustry("all");
+    setSelectedBusinessModel("all");
+    setSelectedTargetMarket("all");
+    setSelectedBudgetRange("all");
+    setSelectedDateRange("all");
+  };
+
+  const isFilterActive =
+    searchQuery ||
+    selectedIndustry !== "all" ||
+    selectedBusinessModel !== "all" ||
+    selectedTargetMarket !== "all" ||
+    selectedBudgetRange !== "all" ||
+    selectedDateRange !== "all";
+
+  // Calculate statistics derived from filtered projects
+  const additionalStats = useMemo(() => {
+    if (!Array.isArray(filteredProjects) || filteredProjects.length === 0) {
       return {
+        totalProjects: 0,
         totalBudget: 0,
         avgBudget: 0,
         industryCount: 0,
         businessModelCount: 0,
-        averageBudget: 0,
       };
     }
 
-    const totalBudget = projects.reduce((sum, p) => {
+    const totalBudget = filteredProjects.reduce((sum, p) => {
       const budgetNum = Number(p?.budget);
       return sum + (!isNaN(budgetNum) ? budgetNum : 0);
     }, 0);
 
-    const validBudgetProjects = projects.filter(
-      (p) => !isNaN(Number(p?.budget)) && Number(p?.budget) > 0,
+    const validBudgetProjects = filteredProjects.filter(
+      (p) => !isNaN(Number(p?.budget)) && Number(p?.budget) > 0
     );
     const countForAvg =
       validBudgetProjects.length > 0
         ? validBudgetProjects.length
-        : projects.length;
+        : filteredProjects.length;
 
     const avgBudget = countForAvg > 0 ? totalBudget / countForAvg : 0;
     const industries = new Set(
-      projects.map((p) => p?.industry).filter(Boolean),
+      filteredProjects.map((p) => p?.industry).filter(Boolean)
     );
     const businessModels = new Set(
-      projects.map((p) => p?.business_model).filter(Boolean),
+      filteredProjects.map((p) => p?.business_model).filter(Boolean)
     );
 
     return {
+      totalProjects: filteredProjects.length,
       totalBudget: isNaN(totalBudget) ? 0 : totalBudget,
       avgBudget: isNaN(avgBudget) ? 0 : avgBudget,
       industryCount: industries.size,
       businessModelCount: businessModels.size,
-      averageBudget: isNaN(avgBudget) ? 0 : avgBudget,
     };
-  };
+  }, [filteredProjects]);
 
-  const additionalStats = calculateAdditionalStats();
-
-  // Indian Numbering System Formatter (k, Lakh, Crore)
+  // Indian Numbering System Formatter
   const formatCurrency = (amount) => {
     const numericAmount = Number(amount);
     if (isNaN(numericAmount) || numericAmount === 0) return "₹0";
@@ -142,9 +261,10 @@ const Dashboard = () => {
     return `₹${numericAmount.toLocaleString("en-IN")}`;
   };
 
-  const getTrendsData = () => {
+  // Trend chart data
+  const trendsData = useMemo(() => {
     const grouped = {};
-    projects.forEach((p) => {
+    filteredProjects.forEach((p) => {
       if (!p?.created_at) return;
       const date = new Date(p.created_at);
       const monthKey = date.toLocaleDateString("en-US", {
@@ -178,69 +298,12 @@ const Dashboard = () => {
         monthIndex: data.month + data.year * 12,
       }))
       .sort((a, b) => a.monthIndex - b.monthIndex);
-  };
+  }, [filteredProjects]);
 
-  const getIndustryTrends = () => {
-    const trends = {};
-    projects.forEach((p) => {
-      if (!p?.created_at) return;
-      const date = new Date(p.created_at);
-      const monthKey = date.toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      });
-      const industry = p.industry || "Other";
-
-      if (!trends[industry]) {
-        trends[industry] = {};
-      }
-      if (!trends[industry][monthKey]) {
-        trends[industry][monthKey] = 0;
-      }
-      trends[industry][monthKey]++;
-    });
-
-    const industryCounts = {};
-    projects.forEach((p) => {
-      const industry = p.industry || "Other";
-      industryCounts[industry] = (industryCounts[industry] || 0) + 1;
-    });
-
-    const topIndustries = Object.entries(industryCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([industry]) => industry);
-
-    const months = [
-      ...new Set(
-        projects
-          .map((p) =>
-            p?.created_at
-              ? new Date(p.created_at).toLocaleDateString("en-US", {
-                  month: "short",
-                  year: "numeric",
-                })
-              : null,
-          )
-          .filter(Boolean),
-      ),
-    ];
-
-    return {
-      topIndustries,
-      data: months.map((month) => {
-        const point = { month };
-        topIndustries.forEach((industry) => {
-          point[industry] = (trends[industry] && trends[industry][month]) || 0;
-        });
-        return point;
-      }),
-    };
-  };
-
-  const getBudgetByIndustry = () => {
+  // Budget by industry
+  const budgetByIndustry = useMemo(() => {
     const industries = {};
-    projects.forEach((p) => {
+    filteredProjects.forEach((p) => {
       const industry = p.industry || "Other";
       if (!industries[industry]) {
         industries[industry] = { total: 0, count: 0 };
@@ -258,39 +321,21 @@ const Dashboard = () => {
         count: data.count,
       }))
       .sort((a, b) => b.avgBudget - a.avgBudget);
-  };
+  }, [filteredProjects]);
 
-  const trendsData = getTrendsData();
-  const industryTrends = getIndustryTrends();
-  const budgetByIndustry = getBudgetByIndustry();
-
-  const calculateGrowth = () => {
+  const growthPercentage = useMemo(() => {
     if (trendsData.length < 2) return 0;
     const last = trendsData[trendsData.length - 1]?.count || 0;
     const prev = trendsData[trendsData.length - 2]?.count || 0;
     if (prev === 0) return last > 0 ? 100 : 0;
     const growth = ((last - prev) / prev) * 100;
     return isNaN(growth) ? 0 : growth;
+  }, [trendsData]);
+
+  // Navigate to detailed project analysis view
+  const handleViewAnalysis = (projectId) => {
+    navigate(`/analysis/${projectId}`);
   };
-
-  const growthPercentage = calculateGrowth();
-
-  const getFilteredRecentProjects = () => {
-    const now = new Date();
-    let filtered = [...projects];
-
-    if (timeRange === "week") {
-      const weekAgo = new Date(now.setDate(now.getDate() - 7));
-      filtered = filtered.filter((p) => new Date(p.created_at) > weekAgo);
-    } else if (timeRange === "month") {
-      const monthAgo = new Date(now.setMonth(now.getMonth() - 1));
-      filtered = filtered.filter((p) => new Date(p.created_at) > monthAgo);
-    }
-
-    return filtered.slice(0, 5);
-  };
-
-  const filteredRecentProjects = getFilteredRecentProjects();
 
   if (loading) {
     return (
@@ -302,7 +347,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-slate-900 selection:text-white">
-      {/* Toast Alert Container */}
+      {/* Toast Notification */}
       {toast && (
         <div className="fixed top-20 right-4 sm:right-6 z-[9999] max-w-md w-full transition-all">
           <Toast
@@ -313,23 +358,156 @@ const Dashboard = () => {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="mb-8 text-center sm:text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200/80 border border-slate-300 text-slate-800 text-xs font-semibold tracking-wider uppercase mb-4">
-            <span className="w-2 h-2 rounded-full bg-slate-900" />
-            Analytics Overview
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200/80 border border-slate-300 text-slate-800 text-xs font-semibold tracking-wider uppercase mb-3">
+              <span className="w-2 h-2 rounded-full bg-slate-900" />
+              Analytics Overview
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
+              Dashboard
+            </h1>
+            <p className="mt-1 text-base text-slate-600 max-w-2xl leading-relaxed">
+              Overview of all projects and market intelligence insights.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
-            Dashboard
-          </h1>
-          <p className="mt-2 text-base text-slate-600 max-w-2xl leading-relaxed">
-            Overview of all projects and market intelligence insights.
-          </p>
+        </div>
+
+        {/* Search Bar & Filter Controls */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+          <div className="relative flex items-center">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+              <FaSearch size={16} />
+            </div>
+
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search projects by Name, Industry, Business Model, or Target Market..."
+              className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors"
+            />
+
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
+                title="Clear search query"
+              >
+                <FaTimes size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Filters Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Industry
+              </label>
+              <select
+                value={selectedIndustry}
+                onChange={(e) => setSelectedIndustry(e.target.value)}
+                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+              >
+                <option value="all">All Industries</option>
+                {filterOptions.industries.map((ind) => (
+                  <option key={ind} value={ind}>
+                    {ind}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Business Model
+              </label>
+              <select
+                value={selectedBusinessModel}
+                onChange={(e) => setSelectedBusinessModel(e.target.value)}
+                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+              >
+                <option value="all">All Models</option>
+                {filterOptions.businessModels.map((bm) => (
+                  <option key={bm} value={bm}>
+                    {bm}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Target Market
+              </label>
+              <select
+                value={selectedTargetMarket}
+                onChange={(e) => setSelectedTargetMarket(e.target.value)}
+                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+              >
+                <option value="all">All Target Markets</option>
+                {filterOptions.targetMarkets.map((tm) => (
+                  <option key={tm} value={tm}>
+                    {tm}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Budget Range
+              </label>
+              <select
+                value={selectedBudgetRange}
+                onChange={(e) => setSelectedBudgetRange(e.target.value)}
+                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+              >
+                <option value="all">All Budgets</option>
+                <option value="under1l">Under ₹1 Lakh</option>
+                <option value="1l_10l">₹1 L – ₹10 Lakhs</option>
+                <option value="above10l">Above ₹10 Lakhs</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                Date Filter
+              </label>
+              <select
+                value={selectedDateRange}
+                onChange={(e) => setSelectedDateRange(e.target.value)}
+                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+              >
+                <option value="all">All Time</option>
+                <option value="week">Past Week</option>
+                <option value="month">Past Month</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
+            <span className="font-medium">
+              Showing <strong>{filteredProjects.length}</strong> matching project(s)
+            </span>
+
+            {isFilterActive && (
+              <button
+                onClick={handleResetFilters}
+                className="inline-flex items-center gap-1.5 text-slate-900 font-bold hover:underline"
+              >
+                <FaUndo size={10} />
+                <span>Reset All Filters</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
@@ -337,7 +515,7 @@ const Dashboard = () => {
                   Total Projects
                 </p>
                 <p className="text-2xl font-bold text-slate-900 mt-1">
-                  {stats.totalProjects}
+                  {additionalStats.totalProjects}
                 </p>
               </div>
               <div className="w-12 h-12 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-900">
@@ -360,10 +538,10 @@ const Dashboard = () => {
                 <FaRupeeSign size={20} />
               </div>
             </div>
-            {projects.length > 0 && (
+            {filteredProjects.length > 0 && (
               <div className="mt-2">
                 <p className="text-xs text-slate-500">
-                  Based on {projects.length} projects
+                  Based on {filteredProjects.length} projects
                 </p>
               </div>
             )}
@@ -406,8 +584,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Project Trends */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-8">
+        {/* Project Trends Composed Chart */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
@@ -442,7 +620,11 @@ const Dashboard = () => {
                         stopColor="#0f172a"
                         stopOpacity={0.15}
                       />
-                      <stop offset="95%" stopColor="#0f172a" stopOpacity={0} />
+                      <stop
+                        offset="95%"
+                        stopColor="#0f172a"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                     <linearGradient
                       id="budgetGradient"
@@ -456,7 +638,11 @@ const Dashboard = () => {
                         stopColor="#64748b"
                         stopOpacity={0.15}
                       />
-                      <stop offset="95%" stopColor="#64748b" stopOpacity={0} />
+                      <stop
+                        offset="95%"
+                        stopColor="#64748b"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -522,86 +708,27 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="h-72 flex items-center justify-center text-slate-400 font-medium text-sm">
-              No data available for trends
+              No data available for current search and filters
             </div>
           )}
         </div>
 
-        {/* Industry Trends */}
-        {/* <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-8">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
-              <FaBuilding size={14} />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">
-              Industry Trends
-            </h3>
-          </div>
-
-          {industryTrends.data.length > 0 &&
-          industryTrends.topIndustries.length > 0 ? (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={industryTrends.data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
-                  <YAxis stroke="#64748b" fontSize={12} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#ffffff",
-                      borderColor: "#e2e8f0",
-                      borderRadius: "8px",
-                      color: "#0f172a",
-                    }}
-                  />
-                  {industryTrends.topIndustries.map((industry, index) => (
-                    <Line
-                      key={industry}
-                      type="monotone"
-                      dataKey={industry}
-                      stroke={TREND_COLORS[index % TREND_COLORS.length]}
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-72 flex items-center justify-center text-slate-400 font-medium text-sm">
-              No industry trend data available
-            </div>
-          )}
-        </div> */}
-
         {/* Distribution Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Industry Distribution - Pie Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900 mb-4">
               Industry Distribution
             </h3>
             <div className="h-72">
               {(() => {
-                // 1. Process data from stats or fallback to calculating directly from project list
-                let pieData =
-                  Array.isArray(stats.industryDistribution) &&
-                  stats.industryDistribution.length > 0
-                    ? stats.industryDistribution.map((item) => ({
-                        name: item.industry || item.name || "Other",
-                        value: Number(
-                          item.count || item.value || item.projects || 0,
-                        ),
-                      }))
-                    : Object.entries(
-                        projects.reduce((acc, p) => {
-                          const ind = p?.industry || "Other";
-                          acc[ind] = (acc[ind] || 0) + 1;
-                          return acc;
-                        }, {}),
-                      ).map(([name, value]) => ({ name, value }));
+                let pieData = Object.entries(
+                  filteredProjects.reduce((acc, p) => {
+                    const ind = p?.industry || "Other";
+                    acc[ind] = (acc[ind] || 0) + 1;
+                    return acc;
+                  }, {})
+                ).map(([name, value]) => ({ name, value }));
 
-                // 2. Render chart or empty state
                 if (
                   pieData.length === 0 ||
                   pieData.every((d) => d.value === 0)
@@ -687,49 +814,24 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Recent Projects Section */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-900">
-              Recent Projects
-            </h3>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setTimeRange("week")}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors font-medium border ${
-                  timeRange === "week"
-                    ? "bg-slate-900 border-slate-900 text-white"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                <FaCalendarAlt className="inline mr-1" size={10} />
-                Week
-              </button>
-              <button
-                onClick={() => setTimeRange("month")}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors font-medium border ${
-                  timeRange === "month"
-                    ? "bg-slate-900 border-slate-900 text-white"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                <FaCalendarAlt className="inline mr-1" size={10} />
-                Month
-              </button>
-              <button
-                onClick={() => setTimeRange("all")}
-                className={`px-3 py-1 text-xs rounded-lg transition-colors font-medium border ${
-                  timeRange === "all"
-                    ? "bg-slate-900 border-slate-900 text-white"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                All Time
-              </button>
+        {/* Market Intelligence Panel */}
+        <MarketIntelligencePanel
+          selectedProject={selectedProject || filteredProjects[0]}
+        />
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Top 10 Recent Projects
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Showing top 10 most recent projects based on selected filters and date
+              </p>
             </div>
           </div>
 
-          {filteredRecentProjects.length > 0 ? (
+          {top10Projects.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
@@ -744,20 +846,34 @@ const Dashboard = () => {
                       Business Model
                     </th>
                     <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Target Market
+                    </th>
+                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Budget
                     </th>
                     <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Submitted
+                      Submitted Date
+                    </th>
+                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500 text-right">
+                      Action
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredRecentProjects.map((project) => (
+                  {top10Projects.map((project) => (
                     <tr
                       key={project.id}
-                      className="hover:bg-slate-50 transition-colors"
+                      onClick={() => {
+                        setSelectedProject(project);
+                        handleViewAnalysis(project.id);
+                      }}
+                      className={`group hover:bg-slate-100/80 transition-colors cursor-pointer ${
+                        selectedProject?.id === project.id
+                          ? "bg-slate-50 font-medium"
+                          : ""
+                      }`}
                     >
-                      <td className="py-3.5 px-4 text-sm font-medium text-slate-900">
+                      <td className="py-3.5 px-4 text-sm font-bold text-slate-900 group-hover:underline">
                         {project.project_name}
                       </td>
                       <td className="py-3.5 px-4 text-sm text-slate-600">
@@ -767,6 +883,9 @@ const Dashboard = () => {
                       </td>
                       <td className="py-3.5 px-4 text-sm text-slate-600">
                         {project.business_model}
+                      </td>
+                      <td className="py-3.5 px-4 text-sm text-slate-600">
+                        {project.target_market}
                       </td>
                       <td className="py-3.5 px-4 text-sm font-medium text-slate-900">
                         {project.budget
@@ -778,55 +897,44 @@ const Dashboard = () => {
                           ? new Date(project.created_at).toLocaleDateString()
                           : "N/A"}
                       </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewAnalysis(project.id);
+                          }}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
+                          title="View Analysis Report"
+                        >
+                          <FaEye size={12} />
+                          <span>Analysis</span>
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              
+              {filteredProjects.length > 10 && (
+                <div className="text-center py-3 text-xs text-slate-500 border-t border-slate-100 font-medium">
+                  Showing top 10 of {filteredProjects.length} matching projects
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-12">
               <p className="text-slate-500 font-medium">
-                No projects found for this time range
+                No projects match the selected search and filter criteria
               </p>
-              <p className="text-sm text-slate-400 mt-1">
-                Try selecting a different time filter.
-              </p>
+              <button
+                onClick={handleResetFilters}
+                className="mt-3 text-xs text-slate-900 font-bold hover:underline"
+              >
+                Clear all filters and search
+              </button>
             </div>
           )}
         </div>
-        {/* Market Intelligence Banner */}
-        {/* <MarketIntelligencePanel selectedProject={selectedProject || stats.recentProjects[0]} /> */}
-        {/* <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-start space-x-4">
-            <div className="flex-shrink-0">
-              <div className="w-12 h-12 bg-slate-900 text-white rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-slate-900">Market Intelligence Coming Soon</h3>
-              <p className="text-slate-600 mt-1 text-sm leading-relaxed">
-                AI-powered market analysis, competitor insights, and strategic recommendations will be available in future updates.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-md text-xs font-medium">
-                  AI Analysis
-                </span>
-                <span className="px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-md text-xs font-medium">
-                  Competitor Tracking
-                </span>
-                <span className="px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-md text-xs font-medium">
-                  Market Trends
-                </span>
-                <span className="px-3 py-1 bg-slate-100 border border-slate-200 text-slate-700 rounded-md text-xs font-medium">
-                  Risk Assessment
-                </span>
-              </div>
-            </div>
-          </div>
-        </div> */}
       </div>
     </div>
   );

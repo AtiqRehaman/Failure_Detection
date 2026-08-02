@@ -1,5 +1,3 @@
-// client/src/utils/analytics.js
-
 /**
  * Filter projects based on various criteria
  */

@@ -10,11 +10,11 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-    ssl:{
-        rejectUnauthorized: false,
-    },
+    idleTimeoutMillis: 60000,
+    connectionTimeoutMillis: 10000,
+    // ssl:{
+    //     rejectUnauthorized: false,
+    // },
 });
 
 // Test database connection
