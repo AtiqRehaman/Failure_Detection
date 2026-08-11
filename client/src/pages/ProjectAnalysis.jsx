@@ -1,25 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  RadarChart, 
-  PolarGrid, 
-  PolarAngleAxis, 
-  PolarRadiusAxis, 
-  Radar, 
-  ResponsiveContainer, 
-  Tooltip 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  Cell
 } from 'recharts';
 import { 
   FaArrowLeft, 
   FaCheckCircle, 
   FaExclamationTriangle, 
   FaLightbulb, 
-  FaChartLine, 
   FaBuilding, 
   FaFileAlt, 
   FaDownload, 
-  FaPrint, 
-  FaShare 
+  FaBrain, 
+  FaShieldAlt, 
+  FaRocket, 
+  FaInfoCircle, 
+  FaChartPie, 
+  FaSatelliteDish 
 } from 'react-icons/fa';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
@@ -30,27 +34,104 @@ const ProjectAnalysis = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState(null);
-  const [analysis, setAnalysis] = useState(null);
+  const [assessment, setAssessment] = useState(null);
   const [toast, setToast] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const token = localStorage.getItem('token');
+
+  // Professional slate/monochrome chart palette
+  const CHART_COLORS = ['#0f172a', '#334155', '#475569', '#64748b', '#94a3b8', '#cbd5e1'];
 
   useEffect(() => {
-    fetchProjectAnalysis();
+    if (!id || id === 'undefined' || id === 'null') {
+      setToast({
+        message: 'Invalid project ID. Redirecting to dashboard...',
+        type: 'error'
+      });
+      setTimeout(() => navigate('/dashboard'), 2000);
+      return;
+    }
+    
+    fetchProjectAssessment();
   }, [id]);
 
-  const fetchProjectAnalysis = async () => {
+  const fetchProjectAssessment = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/projects/${id}/analysis`);
-      const { project: projectData, analysis: analysisData } = response.data.data;
-      setProject(projectData);
-      setAnalysis(analysisData);
+      
+      // Get project details
+      const projectResponse = await axios.get(`${API_URL}/projects/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (projectResponse.data.status === 'success') {
+        setProject(projectResponse.data.data);
+      }
+
+      // Try to get existing assessment
+      try {
+        const assessmentResponse = await axios.get(`${API_URL}/assessment/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (assessmentResponse.data.status === 'success') {
+          setAssessment(assessmentResponse.data.data);
+        }
+      } catch (error) {
+        console.log('No assessment found. Click generate to create one.');
+      }
+      
     } catch (error) {
+      console.error('Error fetching project:', error);
       setToast({
-        message: 'Failed to load project analysis',
+        message: error.response?.data?.message || 'Failed to load project',
         type: 'error'
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateAssessment = async () => {
+    try {
+      setIsGenerating(true);
+      setToast({
+        message: 'Generating AI-powered assessment... This may take a moment.',
+        type: 'info'
+      });
+
+      const response = await axios.post(
+        `${API_URL}/assessment/${id}/generate`,
+        {},
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+      
+      if (response.data.status === 'success') {
+        setToast({
+          message: 'Assessment generated successfully!',
+          type: 'success'
+        });
+        // Refresh assessment data
+        const assessmentResponse = await axios.get(`${API_URL}/assessment/${id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (assessmentResponse.data.status === 'success') {
+          setAssessment(assessmentResponse.data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating assessment:', error);
+      setToast({
+        message: error.response?.data?.message || 'Failed to generate assessment',
+        type: 'error'
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -70,27 +151,40 @@ const ProjectAnalysis = () => {
     return `₹${numericAmount.toLocaleString('en-IN')}`;
   };
 
-  // Prepare radar chart data
-  const getRadarData = () => {
-    if (!analysis) return [];
-    return [
-      { subject: 'Market Potential', value: analysis.marketScore || 0, fullMark: 100 },
-      { subject: 'Growth Potential', value: analysis.growthPotential || 0, fullMark: 100 },
-      { subject: 'Success Prob.', value: analysis.successProbability || 0, fullMark: 100 },
-      { subject: 'Competition', value: analysis.competitionLevel === 'High' ? 30 : analysis.competitionLevel === 'Medium' ? 60 : 90, fullMark: 100 },
-      { subject: 'Risk Rating', value: analysis.riskLevel === 'High' ? 30 : analysis.riskLevel === 'Medium' ? 60 : 90, fullMark: 100 }
-    ];
+  const getPriorityBadge = (priority) => {
+    const styles = {
+      'CRITICAL': 'bg-slate-900 text-white border-slate-900',
+      'HIGH': 'bg-slate-800 text-white border-slate-800',
+      'MEDIUM': 'bg-slate-200 text-slate-800 border-slate-300',
+      'LOW': 'bg-slate-100 text-slate-700 border-slate-200'
+    };
+    return styles[priority] || styles['MEDIUM'];
   };
 
-  // Render SWOT Cards cleanly
-  const renderSWOTList = (items) => {
-    if (!items || items.length === 0) return <p className="text-xs text-slate-400">No data provided</p>;
-    return items.map((item, index) => (
-      <div key={index} className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 mb-2 last:mb-0">
-        <span className="text-xs font-medium text-slate-800 leading-relaxed block">{item}</span>
-      </div>
-    ));
+  // Prepare risk data for charts
+  const getRiskChartData = () => {
+    if (!assessment?.risks) return [];
+    return assessment.risks.map(risk => ({
+      category: risk.risk_category,
+      score: risk.risk_score || 0,
+      priority: risk.priority_level || 'MEDIUM'
+    }));
   };
+
+  // Prepare SWOT data
+  const getSWOTData = () => {
+    if (!assessment?.swot) return { strengths: [], weaknesses: [], opportunities: [], threats: [] };
+    const swot = assessment.swot;
+    return {
+      strengths: swot.strengths || [],
+      weaknesses: swot.weaknesses || [],
+      opportunities: swot.opportunities || [],
+      threats: swot.threats || []
+    };
+  };
+
+  const swotData = getSWOTData();
+  const riskChartData = getRiskChartData();
 
   if (loading) {
     return (
@@ -100,11 +194,11 @@ const ProjectAnalysis = () => {
     );
   }
 
-  if (!project || !analysis) {
+  if (!project) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4">
         <div className="text-center max-w-sm">
-          <p className="text-slate-600 font-medium">Project analysis record not found.</p>
+          <p className="text-slate-600 font-medium">Project not found</p>
           <button
             onClick={() => navigate('/dashboard')}
             className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors"
@@ -116,10 +210,29 @@ const ProjectAnalysis = () => {
     );
   }
 
+  const hasAssessment = assessment && (
+    assessment.risks?.length > 0 || 
+    assessment.swot ||
+    assessment.prediction
+  );
+
+  // SWOT Items renderer
+  const renderSWOTItems = (items) => {
+    if (!items || items.length === 0) {
+      return <p className="text-slate-400 text-xs italic">No items identified</p>;
+    }
+    
+    return items.map((item, index) => (
+      <div key={index} className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 mb-2 last:mb-0 flex items-start gap-2">
+        <span className="text-xs font-medium text-slate-800 leading-relaxed block">{item}</span>
+      </div>
+    ));
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-slate-900 selection:text-white">
       
-      {/* Toast Notification Container */}
+      {/* Toast Alert Container */}
       {toast && (
         <div className="fixed top-20 right-4 sm:right-6 z-[9999] max-w-md w-full transition-all">
           <Toast
@@ -145,222 +258,438 @@ const ProjectAnalysis = () => {
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-slate-200/80 border border-slate-300 text-slate-800 text-[11px] font-semibold tracking-wider uppercase mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
-                Analysis Report
+                Project Intelligence Assessment
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
                 {project.project_name}
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                {project.industry} • {project.business_model}
-              </p>
+              <div className="flex flex-wrap items-center gap-2.5 mt-1 text-xs text-slate-500 font-medium">
+                <span>{project.industry || 'N/A'}</span>
+                <span>•</span>
+                <span>{project.business_model || 'N/A'}</span>
+                <span>•</span>
+                <span className="font-semibold text-slate-900">
+                  Budget: {formatCurrency(project.budget)}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={generateAssessment}
+              disabled={isGenerating}
+              className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
+            >
+              {isGenerating ? (
+                <>
+                  <LoadingSpinner size="sm" color="white" />
+                  <span>{hasAssessment ? 'Regenerating...' : 'Generating...'}</span>
+                </>
+              ) : (
+                <>
+                  <FaBrain size={14} />
+                  <span>{hasAssessment ? 'Regenerate Analysis' : 'Generate AI Analysis'}</span>
+                </>
+              )}
+            </button>
+
             <button className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-2">
               <FaDownload size={12} />
               Export
             </button>
-            <button className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-2">
-              <FaPrint size={12} />
-              Print
-            </button>
-            <button className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2">
-              <FaShare size={12} />
-              Share
-            </button>
-          </div> */}
+          </div>
         </div>
 
-        {/* 1. Key Metrics Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {analysis.keyMetrics?.map((metric, index) => (
-            <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{metric.label}</p>
-              <p className="text-2xl font-extrabold text-slate-900 mt-1">{metric.value}</p>
-              <p className="text-[11px] text-slate-400 mt-1 leading-snug">{metric.description}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* 2. Primary Analysis Grid: Radar Scorecard + Market Signals */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* Success Factors Radar Chart (7 cols) */}
-          <div className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
-                <FaChartLine size={14} />
+        {/* Status Banner - Show if assessment exists */}
+        {hasAssessment && assessment.prediction && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-center">
+              
+              <div className="flex items-center space-x-3.5">
+                <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center">
+                  <FaRocket size={18} />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Success Probability</p>
+                  <p className="text-2xl font-extrabold text-slate-900 mt-0.5">
+                    {assessment.prediction.success_probability || 0}%
+                  </p>
+                </div>
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Success Factors Scorecard</h3>
-            </div>
 
-            <div className="h-80 my-auto">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={getRadarData()}>
-                  <PolarGrid stroke="#e2e8f0" />
-                  <PolarAngleAxis dataKey="subject" stroke="#64748b" fontSize={11} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#cbd5e1" fontSize={10} />
-                  <Radar
-                    name="Score"
-                    dataKey="value"
-                    stroke="#0f172a"
-                    fill="#0f172a"
-                    fillOpacity={0.25}
-                  />
-                  <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
-                </RadarChart>
-              </ResponsiveContainer>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Overall Risk Score</p>
+                <p className="text-2xl font-extrabold text-slate-900 mt-0.5">
+                  {assessment.prediction.overall_risk_score || 0}%
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Confidence Rating</p>
+                <p className="text-2xl font-extrabold text-slate-900 mt-0.5">
+                  {assessment.prediction.confidence_score || 0}%
+                </p>
+              </div>
+
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">System Evaluation</p>
+                <span className="inline-block mt-1 px-3 py-1 bg-slate-100 border border-slate-200 text-slate-900 rounded-lg text-xs font-bold">
+                  {(assessment.prediction.success_probability || 0) >= 70 
+                    ? 'High Potential' 
+                    : (assessment.prediction.success_probability || 0) >= 50 
+                      ? 'Moderate Potential' 
+                      : 'Needs Review'}
+                </span>
+              </div>
+
             </div>
           </div>
+        )}
 
-          {/* Market Trends (5 cols) */}
-          <div className="lg:col-span-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
-                  <FaBuilding size={14} />
+        {/* Navigation Tabs */}
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-1">
+          {[
+            { key: 'overview', label: 'Overview', icon: FaInfoCircle },
+            { key: 'risks', label: 'Risk Assessment', icon: FaShieldAlt },
+            { key: 'swot', label: 'SWOT Matrix', icon: FaChartPie },
+            { key: 'recommendations', label: 'Recommendations', icon: FaLightbulb },
+            { key: 'details', label: 'Project Details', icon: FaFileAlt },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isTabActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 text-xs font-semibold transition-all rounded-lg flex items-center gap-2 ${
+                  isTabActive
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Icon size={12} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab 1: Overview */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {hasAssessment ? (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Risk Categories</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-1">{assessment.risks?.length || 0}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Categories evaluated</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">SWOT Points</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                      {(swotData.strengths?.length || 0) + (swotData.weaknesses?.length || 0) + 
+                       (swotData.opportunities?.length || 0) + (swotData.threats?.length || 0)}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Identified factors</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Recommendations</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-1">{assessment.recommendations?.length || 0}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Strategic actions</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Success Score</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                      {assessment.prediction?.success_probability || 0}%
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Model prediction</p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-bold text-slate-900">Market Dynamics</h3>
-              </div>
 
-              <div className="space-y-4 pt-2">
-                {analysis.marketTrends?.map((trend, index) => (
-                  <div key={index} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-slate-700">{trend.label}</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-900 font-bold">{trend.value}%</span>
-                        <span className={`text-[10px] font-bold ${trend.trend === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {trend.trend === 'up' ? '▲' : '▼'}
+                {/* Risk Overview Chart */}
+                {riskChartData.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
+                        <FaSatelliteDish size={14} />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900">Risk Score Distribution</h3>
+                    </div>
+
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={riskChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                          <XAxis dataKey="category" stroke="#64748b" fontSize={12} />
+                          <YAxis domain={[0, 100]} stroke="#64748b" fontSize={12} />
+                          <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
+                          <Bar dataKey="score" fill="#0f172a" radius={[4, 4, 0, 0]}>
+                            {riskChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+
+                {/* Key Insights */}
+                {assessment.recommendations && assessment.recommendations.length > 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
+                        <FaBrain size={14} />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900">Executive Insights</h3>
+                    </div>
+
+                    <ul className="space-y-2.5">
+                      {assessment.recommendations.slice(0, 3).map((rec, index) => (
+                        <li key={index} className="flex items-start gap-2.5 text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          <span className="font-bold text-slate-900">•</span>
+                          <span>{rec.recommendation_text || rec.description}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+                <div className="max-w-md mx-auto space-y-4">
+                  <div className="w-16 h-16 bg-slate-100 border border-slate-200 text-slate-900 rounded-2xl flex items-center justify-center mx-auto">
+                    <FaBrain size={28} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">No Assessment Generated</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Generate an AI-powered assessment to evaluate risk factors, SWOT matrix, 
+                    success predictions, and actionable strategic recommendations.
+                  </p>
+                  <button
+                    onClick={generateAssessment}
+                    disabled={isGenerating}
+                    className="px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors inline-flex items-center gap-2 shadow-sm disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <LoadingSpinner size="sm" color="white" />
+                        <span>Generating Assessment...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FaBrain size={14} />
+                        <span>Generate AI Assessment</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Risk Assessment */}
+        {activeTab === 'risks' && (
+          <div className="space-y-6">
+            {hasAssessment && assessment.risks?.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {assessment.risks.map((risk, index) => (
+                    <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">{risk.risk_category}</h4>
+                          <p className="text-xs text-slate-500 mt-0.5">{risk.risk_description || 'Risk factor analysis'}</p>
+                        </div>
+                        <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold border uppercase ${getPriorityBadge(risk.priority_level)}`}>
+                          {risk.priority_level || 'MEDIUM'}
                         </span>
                       </div>
+
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px] font-bold text-slate-600">
+                          <span>Risk Rating</span>
+                          <span>{risk.risk_score || 0}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                          <div
+                            className="h-full bg-slate-900 rounded-full transition-all duration-500"
+                            style={{ width: `${risk.risk_score || 0}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {risk.mitigation_strategy && (
+                        <div className="pt-2 border-t border-slate-100">
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mitigation Strategy</p>
+                          <p className="text-xs text-slate-700 leading-relaxed mt-0.5">{risk.mitigation_strategy}</p>
+                        </div>
+                      )}
                     </div>
-                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
-                      <div
-                        className="h-full bg-slate-900 rounded-full transition-all duration-500"
-                        style={{ width: `${trend.value}%` }}
-                      />
+                  ))}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4">Risk Overview Spectrum</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={riskChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="category" stroke="#64748b" fontSize={12} />
+                        <YAxis domain={[0, 100]} stroke="#64748b" fontSize={12} />
+                        <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '8px', color: '#0f172a' }} />
+                        <Bar dataKey="score" fill="#0f172a" radius={[4, 4, 0, 0]}>
+                          {riskChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-semibold text-slate-500">No risk assessment available. Click "Generate AI Analysis" to calculate risk metrics.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 3: SWOT Matrix */}
+        {activeTab === 'swot' && (
+          <div className="space-y-6">
+            {hasAssessment && (swotData.strengths?.length > 0 || swotData.weaknesses?.length > 0) ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
+                    <FaCheckCircle className="text-slate-900" size={14} />
+                    Strengths
+                  </h4>
+                  {renderSWOTItems(swotData.strengths)}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
+                    <FaExclamationTriangle className="text-slate-900" size={14} />
+                    Weaknesses
+                  </h4>
+                  {renderSWOTItems(swotData.weaknesses)}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
+                    <FaLightbulb className="text-slate-900" size={14} />
+                    Opportunities
+                  </h4>
+                  {renderSWOTItems(swotData.opportunities)}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
+                    <FaShieldAlt className="text-slate-900" size={14} />
+                    Threats
+                  </h4>
+                  {renderSWOTItems(swotData.threats)}
+                </div>
+
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-semibold text-slate-500">No SWOT matrix available. Generate the analysis to display SWOT data.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 4: Recommendations */}
+        {activeTab === 'recommendations' && (
+          <div className="space-y-6">
+            {hasAssessment && assessment.recommendations?.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {assessment.recommendations.map((rec, index) => (
+                  <div key={index} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">{rec.category || 'Strategic'}</span>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${getPriorityBadge(rec.priority)}`}>
+                          {rec.priority || 'MEDIUM'}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-900 leading-relaxed">
+                        {rec.recommendation_text || rec.description}
+                      </p>
                     </div>
+
+                    {rec.risk_mitigation && (
+                      <div className="pt-2 border-t border-slate-100">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mitigation Strategy</p>
+                        <p className="text-xs text-slate-600 mt-0.5">{rec.risk_mitigation}</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-
-        </div>
-
-        {/* 3. AI Recommendations Block */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
-              <FaLightbulb size={14} />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">AI Strategic Action Plan</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {analysis.recommendations?.map((rec, index) => (
-              <div key={index} className="bg-slate-50 rounded-xl p-4 border border-slate-200/80 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">{rec.category}</span>
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
-                      rec.priority === 'High' ? 'bg-slate-900 text-white border-slate-900' :
-                      rec.priority === 'Medium' ? 'bg-slate-200 text-slate-800 border-slate-300' :
-                      'bg-white text-slate-600 border-slate-200'
-                    }`}>
-                      {rec.priority}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed mt-1">{rec.description}</p>
-                </div>
+            ) : (
+              <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-semibold text-slate-500">No recommendations available. Click "Generate AI Analysis" to receive action plans.</p>
               </div>
-            ))}
+            )}
           </div>
-        </div>
+        )}
 
-        {/* 4. SWOT Analysis Matrix */}
-        <div>
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Strategic SWOT Matrix</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
-                <FaCheckCircle className="text-slate-900" size={14} />
-                Strengths
-              </h4>
-              {renderSWOTList(analysis.swot?.strengths)}
+        {/* Tab 5: Project Details */}
+        {activeTab === 'details' && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
+                <FaFileAlt size={14} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Project Specifications</h3>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
-                <FaExclamationTriangle className="text-slate-900" size={14} />
-                Weaknesses
-              </h4>
-              {renderSWOTList(analysis.swot?.weaknesses)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Project Name</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">{project.project_name}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Industry</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">{project.industry || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Business Model</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">{project.business_model || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Target Market</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">{project.target_market || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Budget Allocation</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">{formatCurrency(project.budget)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Submitted Date</p>
+                <p className="text-sm font-bold text-slate-900 mt-1">
+                  {project.created_at ? new Date(project.created_at).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
-                <FaLightbulb className="text-slate-900" size={14} />
-                Opportunities
-              </h4>
-              {renderSWOTList(analysis.swot?.opportunities)}
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
-                <FaExclamationTriangle className="text-slate-900" size={14} />
-                Threats
-              </h4>
-              {renderSWOTList(analysis.swot?.threats)}
-            </div>
-          </div>
-        </div>
-
-        {/* 5. Full Project Details */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
-              <FaFileAlt size={14} />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">Project Specifications</h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Project Name</p>
-              <p className="text-sm font-bold text-slate-900 mt-1">{project.project_name}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Industry</p>
-              <p className="text-sm font-bold text-slate-900 mt-1">{project.industry}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Business Model</p>
-              <p className="text-sm font-bold text-slate-900 mt-1">{project.business_model}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Target Market</p>
-              <p className="text-sm font-bold text-slate-900 mt-1">{project.target_market}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Budget Allocation</p>
-              <p className="text-sm font-bold text-slate-900 mt-1">{formatCurrency(project.budget)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Submission Date</p>
-              <p className="text-sm font-bold text-slate-900 mt-1">
-                {project.created_at ? new Date(project.created_at).toLocaleDateString() : 'N/A'}
-              </p>
+            <div className="mt-6 pt-4 border-t border-slate-100">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Executive Overview</p>
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mt-1">{project.description || 'No description provided'}</p>
             </div>
           </div>
-
-          <div className="mt-6 pt-4 border-t border-slate-100">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Executive Overview</p>
-            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mt-1">{project.description}</p>
-          </div>
-        </div>
+        )}
 
       </div>
     </div>

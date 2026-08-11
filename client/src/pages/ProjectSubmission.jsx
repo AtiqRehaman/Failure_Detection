@@ -310,7 +310,6 @@ const ProjectSubmission = () => {
         </div>
 
         {/* AI Analysis Information Banner */}
-        
       </div>
     </div>
   );

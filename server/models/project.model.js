@@ -1,17 +1,17 @@
-const { pool } = require('../config/database');
+const { pool } = require("../config/database");
 
 class ProjectModel {
-    static async create(projectData) {
-        const {
-            project_name,
-            industry,
-            business_model,
-            target_market,
-            budget,
-            description
-        } = projectData;
+  static async create(projectData) {
+    const {
+      project_name,
+      industry,
+      business_model,
+      target_market,
+      budget,
+      description,
+    } = projectData;
 
-        const query = `
+    const query = `
             INSERT INTO projects (
                 project_name,
                 industry,
@@ -20,76 +20,76 @@ class ProjectModel {
                 budget,
                 description
             ) VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, project_name, industry, business_model, 
+            RETURNING project_id, project_name, industry, business_model, 
                       target_market, budget, description, created_at
         `;
 
-        const values = [
-            project_name,
-            industry,
-            business_model,
-            target_market,
-            budget || null,
-            description
-        ];
+    const values = [
+      project_name,
+      industry,
+      business_model,
+      target_market,
+      budget || null,
+      description,
+    ];
 
-        try {
-            const result = await pool.query(query, values);
-            return result.rows[0];
-        } catch (error) {
-            console.error('Error creating project:', error);
-            throw new Error('Failed to create project');
-        }
+    try {
+      const result = await pool.query(query, values);
+      return result.rows[0];
+    } catch (error) {
+      console.error("Error creating project:", error);
+      throw new Error("Failed to create project");
     }
+  }
 
-    static async findAll(options = {}) {
-        const { limit = 100, offset = 0 } = options;
-        
-        const query = `
-            SELECT id, project_name, industry, business_model, 
+  static async findAll(options = {}) {
+    const { limit = 100, offset = 0 } = options;
+
+    const query = `
+            SELECT project_id, project_name, industry, business_model, 
                    target_market, budget, description, created_at
             FROM projects
             ORDER BY created_at DESC
             LIMIT $1 OFFSET $2
         `;
 
-        try {
-            const result = await pool.query(query, [limit, offset]);
-            return result.rows;
-        } catch (error) {
-            console.error('Error fetching projects:', error);
-            throw new Error('Failed to fetch projects');
-        }
+    try {
+      const result = await pool.query(query, [limit, offset]);
+      return result.rows;
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      throw new Error("Failed to fetch projects");
     }
+  }
 
-    static async findById(id) {
-        const query = `
-            SELECT id, project_name, industry, business_model, 
+  static async findById(id) {
+    const query = `
+            SELECT project_id, project_name, industry, business_model, 
                    target_market, budget, description, created_at
             FROM projects
-            WHERE id = $1
+            WHERE project_id = $1
         `;
 
-        try {
-            const result = await pool.query(query, [id]);
-            return result.rows[0] || null;
-        } catch (error) {
-            console.error('Error fetching project:', error);
-            throw new Error('Failed to fetch project');
-        }
+    try {
+      const result = await pool.query(query, [id]);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      throw new Error("Failed to fetch project");
     }
+  }
 
-    static async update(id, updateData) {
-        const {
-            project_name,
-            industry,
-            business_model,
-            target_market,
-            budget,
-            description
-        } = updateData;
+  static async update(id, updateData) {
+    const {
+      project_name,
+      industry,
+      business_model,
+      target_market,
+      budget,
+      description,
+    } = updateData;
 
-        const query = `
+    const query = `
             UPDATE projects
             SET 
                 project_name = COALESCE($1, project_name),
@@ -98,70 +98,71 @@ class ProjectModel {
                 target_market = COALESCE($4, target_market),
                 budget = COALESCE($5, budget),
                 description = COALESCE($6, description)
-            WHERE id = $7
-            RETURNING id, project_name, industry, business_model, 
+            WHERE project_id = $7
+            RETURNING project_id, project_name, industry, business_model, 
                       target_market, budget, description, created_at
         `;
 
-        const values = [
-            project_name,
-            industry,
-            business_model,
-            target_market,
-            budget,
-            description,
-            id
-        ];
+    const values = [
+      project_name,
+      industry,
+      business_model,
+      target_market,
+      budget,
+      description,
+      id,
+    ];
 
-        try {
-            const result = await pool.query(query, values);
-            return result.rows[0] || null;
-        } catch (error) {
-            console.error('Error updating project:', error);
-            throw new Error('Failed to update project');
-        }
+    try {
+      const result = await pool.query(query, values);
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error("Error updating project:", error);
+      throw new Error("Failed to update project");
     }
+  }
 
-    static async delete(id) {
-        const query = 'DELETE FROM projects WHERE id = $1 RETURNING id';
+  static async delete(id) {
+    const query =
+      "DELETE FROM projects WHERE project_id = $1 RETURNING project_id";
 
-        try {
-            const result = await pool.query(query, [id]);
-            return result.rows.length > 0;
-        } catch (error) {
-            console.error('Error deleting project:', error);
-            throw new Error('Failed to delete project');
-        }
+    try {
+      const result = await pool.query(query, [id]);
+      return result.rows.length > 0;
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      throw new Error("Failed to delete project");
     }
+  }
 
-    static async count() {
-        const query = 'SELECT COUNT(*) as count FROM projects';
+  static async count() {
+    const query = "SELECT COUNT(*) as count FROM projects";
 
-        try {
-            const result = await pool.query(query);
-            return parseInt(result.rows[0].count);
-        } catch (error) {
-            console.error('Error counting projects:', error);
-            throw new Error('Failed to count projects');
-        }
+    try {
+      const result = await pool.query(query);
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      console.error("Error counting projects:", error);
+      throw new Error("Failed to count projects");
     }
+  }
 
-    static async getIndustryStats() {
-        const query = `
+  static async getIndustryStats() {
+    const query = `
             SELECT industry, COUNT(*) as count
             FROM projects
             GROUP BY industry
             ORDER BY count DESC
         `;
 
-        try {
-            const result = await pool.query(query);
-            return result.rows;
-        } catch (error) {
-            console.error('Error getting industry stats:', error);
-            throw new Error('Failed to get industry statistics');
-        }
+    try {
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error("Error getting industry stats:", error);
+      throw new Error("Failed to get industry statistics");
     }
+  }
 }
 
 module.exports = ProjectModel;

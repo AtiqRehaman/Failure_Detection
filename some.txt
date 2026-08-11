@@ -1,0 +1,266 @@
+-- Local LLM
+{
+  "status": "success",
+  "message": "Assessment generated successfully",
+  "data": {
+    "risk": {
+      "risks": [
+        {
+          "category": "Financial",
+          "score": 45,
+          "description": "Initial capital may be insufficient to support the full-scale launch and ongoing operations.",
+          "priority": "MEDIUM",
+          "mitigation": "Secure additional funding through investors or loans to ensure financial stability."
+        },
+        {
+          "category": "Market",
+          "score": 65,
+          "description": "The education technology market is highly competitive, and gaining a significant market share may be challenging.",
+          "priority": "HIGH",
+          "mitigation": "Develop a comprehensive marketing strategy that includes targeted campaigns and partnerships with educational institutions."
+        },
+        {
+          "category": "Technical",
+          "score": 55,
+          "description": "The development and maintenance of a gamified learning platform require technical expertise and continuous updates.",
+          "priority": "MEDIUM",
+          "mitigation": "Invest in a skilled development team and stay abreast of technological advancements to ensure platform reliability."
+        },
+        {
+          "category": "Business",
+          "score": 40,
+          "description": "The business model may face scalability issues as the user base grows.",
+          "priority": "MEDIUM",
+          "mitigation": "Implement scalable infrastructure and operational processes to accommodate growth without compromising quality."
+        },
+        {
+          "category": "Regulatory",
+          "score": 50,
+          "description": "Changes in educational policies or regulations could impact the business operations.",
+          "priority": "MEDIUM",
+          "mitigation": "Stay informed about regulatory changes and adapt the business model accordingly to ensure compliance."
+        }
+      ],
+      "swot": {
+        "strengths": [
+          "Strong market demand",
+          "Innovative approach",
+          "Scalable business model",
+          "Experienced team"
+        ],
+        "weaknesses": [
+          "Limited initial funding",
+          "Market entry challenges",
+          "Competitive pressure",
+          "Resource constraints"
+        ],
+        "opportunities": [
+          "Growing market segment",
+          "Technology advancement",
+          "Strategic partnerships",
+          "New customer segments"
+        ],
+        "threats": [
+          "Market competition",
+          "Regulatory changes",
+          "Economic uncertainty",
+          "Technology disruption"
+        ],
+        "summary": "The EdTech Gamification project demonstrates significant potential, driven by a strong market demand and innovative approach. However, careful planning and execution are crucial to mitigate identified risks and capitalize on opportunities."
+      },
+      "prediction": {
+        "successProbability": 68,
+        "overallRisk": 32,
+        "confidence": 85,
+        "keyDrivers": [
+          "Effective marketing strategies",
+          "Strong user engagement",
+          "Continuous technological improvements",
+          "Strategic partnerships"
+        ],
+        "keyChallenges": [
+          "Securing sufficient funding",
+          "Intense market competition",
+          "Adapting to regulatory changes",
+          "Maintaining user satisfaction"
+        ],
+        "timeline": "The project is expected to reach a critical milestone within the first 18 months, with full-scale operations anticipated by the end of the second year."
+      }
+    },
+    "swot": {
+      "strengths": [
+        "Strong market demand for gamified learning solutions",
+        "Innovative approach to teaching math and science",
+        "Scalable business model with potential for rapid growth",
+        "Experienced team with deep domain knowledge"
+      ],
+      "weaknesses": [
+        "Limited initial capital to support growth and development",
+        "Potential challenges in entering a competitive market",
+        "Intense competitive pressure from established players",
+        "Potential resource constraints that may limit innovation"
+      ],
+      "opportunities": [
+        "Expanding market segment for educational technology",
+        "Advancements in educational technology that can be leveraged",
+        "Opportunities for strategic partnerships with educational institutions",
+        "Potential to tap into new customer segments beyond K-12"
+      ],
+      "threats": [
+        "Intense competition from existing and emerging EdTech companies",
+        "Potential regulatory changes that could impact operations",
+        "Economic uncertainties that may affect consumer spending on educational tools",
+        "Technological disruptions that could render the platform obsolete"
+      ],
+      "summary": "The EdTech Gamification project holds significant potential. However, it requires strategic planning, effective risk management, and a commitment to innovation to achieve long-term success."
+    },
+    "prediction": {
+      "successProbability": 68,
+      "overallRisk": 32,
+      "confidence": 85,
+      "keyDrivers": [
+        "Effective marketing and brand differentiation",
+        "Robust technical development and quality assurance",
+        "Strategic partnerships and market expansion"
+      ],
+      "keyChallenges": [
+        "Securing sufficient funding",
+        "Navigating the competitive education technology market",
+        "Adapting to regulatory changes"
+      ],
+      "timeline": "The project is expected to reach full market potential within the next 5 years, provided that key drivers are effectively managed and challenges are addressed."
+    }
+  }
+}
+
+-- Fall back
+{
+  "status": "success",
+  "message": "Assessment generated successfully",
+  "data": {
+    "risk": {
+      "risks": [
+        {
+          "category": "Financial",
+          "score": 45,
+          "description": "Financial risk assessment",
+          "priority": "MEDIUM",
+          "mitigation": "Develop Financial risk mitigation strategy"
+        },
+        {
+          "category": "Market",
+          "score": 65,
+          "description": "Market risk assessment",
+          "priority": "HIGH",
+          "mitigation": "Develop Market risk mitigation strategy"
+        },
+        {
+          "category": "Technical",
+          "score": 55,
+          "description": "Technical risk assessment",
+          "priority": "MEDIUM",
+          "mitigation": "Develop Technical risk mitigation strategy"
+        },
+        {
+          "category": "Business",
+          "score": 40,
+          "description": "Business risk assessment",
+          "priority": "MEDIUM",
+          "mitigation": "Develop Business risk mitigation strategy"
+        },
+        {
+          "category": "Regulatory",
+          "score": 50,
+          "description": "Regulatory risk assessment",
+          "priority": "MEDIUM",
+          "mitigation": "Develop Regulatory risk mitigation strategy"
+        }
+      ],
+      "swot": {
+        "strengths": [
+          "Strong market demand",
+          "Innovative approach",
+          "Scalable business model",
+          "Experienced team"
+        ],
+        "weaknesses": [
+          "Limited initial funding",
+          "Market entry challenges",
+          "Competitive pressure",
+          "Resource constraints"
+        ],
+        "opportunities": [
+          "Growing market segment",
+          "Technology advancement",
+          "Strategic partnerships",
+          "New customer segments"
+        ],
+        "threats": [
+          "Market competition",
+          "Regulatory changes",
+          "Economic uncertainty",
+          "Technology disruption"
+        ],
+        "summary": "Project shows potential but requires careful planning and execution."
+      },
+      "prediction": {
+        "successProbability": 68,
+        "overallRisk": 32,
+        "confidence": 85,
+        "keyDrivers": [
+          "Market potential",
+          "Business model viability",
+          "Team capabilities"
+        ],
+        "keyChallenges": [
+          "Competition",
+          "Resource allocation",
+          "Market entry"
+        ],
+        "timeline": "12-18 months to market"
+      }
+    },
+    "swot": {
+      "strengths": [
+        "Strong market demand",
+        "Innovative approach",
+        "Scalable business model",
+        "Experienced team"
+      ],
+      "weaknesses": [
+        "Limited initial funding",
+        "Market entry challenges",
+        "Competitive pressure",
+        "Resource constraints"
+      ],
+      "opportunities": [
+        "Growing market segment",
+        "Technology advancement",
+        "Strategic partnerships",
+        "New customer segments"
+      ],
+      "threats": [
+        "Market competition",
+        "Regulatory changes",
+        "Economic uncertainty",
+        "Technology disruption"
+      ],
+      "summary": "Project shows potential but requires careful planning and execution."
+    },
+    "prediction": {
+      "successProbability": 68,
+      "overallRisk": 32,
+      "confidence": 85,
+      "keyDrivers": [
+        "Strong demand for engaging STEM education solutions",
+        "Scalable B2C platform architecture",
+        "High target retention through effective gamification design"
+      ],
+      "keyChallenges": [
+        "Managing customer acquisition cost within budget boundaries",
+        "Ensuring strict compliance with child privacy regulations"
+      ],
+      "timeline": "12 to 18 months to reach key market milestone and self-sustaining unit economics"
+    }
+  }
+}
