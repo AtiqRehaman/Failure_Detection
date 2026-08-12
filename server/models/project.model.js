@@ -2,45 +2,49 @@ const { pool } = require("../config/database");
 
 class ProjectModel {
   static async create(projectData) {
-    const {
-      project_name,
-      industry,
-      business_model,
-      target_market,
-      budget,
-      description,
-    } = projectData;
+        const {
+            user_id,
+            project_name,
+            industry,
+            business_model,
+            target_market,
+            budget,
+            description
+        } = projectData;
 
-    const query = `
+        const query = `
             INSERT INTO projects (
+                user_id,
                 project_name,
                 industry,
                 business_model,
                 target_market,
                 budget,
                 description
-            ) VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING project_id, project_name, industry, business_model, 
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING project_id, user_id, project_name, industry, business_model, 
                       target_market, budget, description, created_at
         `;
 
-    const values = [
-      project_name,
-      industry,
-      business_model,
-      target_market,
-      budget || null,
-      description,
-    ];
+        const values = [
+            user_id,
+            project_name,
+            industry,
+            business_model,
+            target_market,
+            budget || null,
+            description
+        ];
 
-    try {
-      const result = await pool.query(query, values);
-      return result.rows[0];
-    } catch (error) {
-      console.error("Error creating project:", error);
-      throw new Error("Failed to create project");
+        try {
+            const result = await pool.query(query, values);
+            return result.rows[0];
+        } catch (error) {
+            console.error('Error creating project:', error);
+            throw new Error('Failed to create project');
+        }
     }
-  }
+
 
   static async findAll(options = {}) {
     const { limit = 100, offset = 0 } = options;

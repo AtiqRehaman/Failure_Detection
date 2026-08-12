@@ -6,18 +6,24 @@ const authenticate = (req, res, next) => {
     if (!token) {
         return res.status(401).json({
             status: 'error',
-            message: 'No token provided'
+            message: 'No token provided. Please login first.'
         });
     }
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+        req.user = decoded; // This sets { userId, email, role } on req.user
         next();
     } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                status: 'error',
+                message: 'Token expired. Please login again.'
+            });
+        }
         return res.status(401).json({
             status: 'error',
-            message: 'Invalid token'
+            message: 'Invalid token. Please login again.'
         });
     }
 };

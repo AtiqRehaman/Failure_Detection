@@ -3,7 +3,18 @@ const { ProjectModel } = require('../models');
 class ProjectController {
     async createProject(req, res, next) {
         try {
+            // Get user_id from authenticated user (set by auth middleware)
+            const userId = req.user?.userId;
+            
+            if (!userId) {
+                return res.status(401).json({
+                    status: 'error',
+                    message: 'User not authenticated'
+                });
+            }
+
             const projectData = {
+                user_id: userId,  // Add the user_id from the authenticated user
                 project_name: req.body.projectName,
                 industry: req.body.industry,
                 business_model: req.body.businessModel,
