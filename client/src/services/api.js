@@ -11,8 +11,19 @@ const apiClient = axios.create({
   timeout: 30000,
 });
 
+// ===================================================
+// REQUEST INTERCEPTOR - Add Auth Token
+// ===================================================
 apiClient.interceptors.request.use(
   (config) => {
+    // Get token from localStorage
+    const token = localStorage.getItem("token");
+
+    // If token exists, add to headers
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     console.log(`📤 ${config.method.toUpperCase()} ${config.url}`);
     return config;
   },
@@ -21,6 +32,41 @@ apiClient.interceptors.request.use(
   },
 );
 
+// ===================================================
+// RESPONSE INTERCEPTOR - Handle Token Expiry
+// ===================================================
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Handle 401 Unauthorized (Token expired or invalid)
+    if (error.response?.status === 401) {
+      console.error("❌ Authentication error. Redirecting to login...");
+      // Clear stored tokens
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      // Redirect to login page
+      window.location.href = "/login";
+    }
+
+    if (error.response) {
+      const message = error.response.data?.message || "An error occurred";
+      console.error("❌ API Error:", message);
+      return Promise.reject(new Error(message));
+    } else if (error.request) {
+      console.error("❌ Network Error:", error.message);
+      return Promise.reject(
+        new Error("Network error. Please check your connection."),
+      );
+    } else {
+      console.error("❌ Error:", error.message);
+      return Promise.reject(new Error("An unexpected error occurred."));
+    }
+  },
+);
+
+// ===================================================
+// NORMALIZATION FUNCTIONS
+// ===================================================
 const normalizeProject = (project) => {
   if (!project || typeof project !== "object") return project;
   return {
@@ -49,25 +95,56 @@ const normalizeApiResponse = (responseData) => {
   return responseData;
 };
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response) {
-      const message = error.response.data?.message || "An error occurred";
-      console.error("❌ API Error:", message);
-      return Promise.reject(new Error(message));
-    } else if (error.request) {
-      console.error("❌ Network Error:", error.message);
-      return Promise.reject(
-        new Error("Network error. Please check your connection."),
-      );
-    } else {
-      console.error("❌ Error:", error.message);
-      return Promise.reject(new Error("An unexpected error occurred."));
-    }
-  },
-);
+// ===================================================
+// AUTHENTICATION FUNCTIONS
+// ===================================================
 
+// Login user
+export const loginUser = async (email, password) => {
+  try {
+    const response = await apiClient.post("/auth/login", { email, password });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Register user
+export const registerUser = async (name, email, password) => {
+  try {
+    const response = await apiClient.post("/auth/register", {
+      name,
+      email,
+      password,
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Get current user profile
+export const getCurrentUser = async () => {
+  try {
+    const response = await apiClient.get("/auth/me");
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Logout user (clear local storage)
+export const logoutUser = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  window.location.href = "/login";
+};
+
+// ===================================================
+// PROJECT FUNCTIONS
+// ===================================================
+
+// Submit a new project
 export const submitProject = async (projectData) => {
   try {
     const response = await apiClient.post("/projects", projectData);
@@ -77,6 +154,7 @@ export const submitProject = async (projectData) => {
   }
 };
 
+// Get all projects with pagination
 export const getProjects = async (params = {}) => {
   try {
     const response = await apiClient.get("/projects", { params });
@@ -86,6 +164,7 @@ export const getProjects = async (params = {}) => {
   }
 };
 
+// Get a single project by ID
 export const getProjectById = async (id) => {
   try {
     const response = await apiClient.get(`/projects/${id}`);
@@ -95,6 +174,7 @@ export const getProjectById = async (id) => {
   }
 };
 
+// Update a project
 export const updateProject = async (id, projectData) => {
   try {
     const response = await apiClient.put(`/projects/${id}`, projectData);
@@ -104,6 +184,7 @@ export const updateProject = async (id, projectData) => {
   }
 };
 
+// Delete a project
 export const deleteProject = async (id) => {
   try {
     const response = await apiClient.delete(`/projects/${id}`);
@@ -113,7 +194,34 @@ export const deleteProject = async (id) => {
   }
 };
 
-// Fetch market intelligence for a specific industry & project
+// ===================================================
+// ASSESSMENT FUNCTIONS (Milestone 2)
+// ===================================================
+
+// Generate assessment for a project
+export const generateAssessment = async (projectId) => {
+  try {
+    const response = await apiClient.post(`/assessment/${projectId}/generate`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Get assessment for a project
+export const getAssessment = async (projectId) => {
+  try {
+    const response = await apiClient.get(`/assessment/${projectId}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// ===================================================
+// MARKET INTELLIGENCE (Mock)
+// ===================================================
+
 export const getMarketIntelligence = async (
   industry,
   projectName,
@@ -141,5 +249,9 @@ export const getMarketIntelligence = async (
     ],
   };
 };
+
+// ===================================================
+// DEFAULT EXPORT
+// ===================================================
 
 export default apiClient;
