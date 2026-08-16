@@ -1,17 +1,17 @@
-import React from 'react';
+import React from "react";
 
-const LoadingSpinner = ({ size = 'md', color = 'primary' }) => {
+const LoadingSpinner = ({ size = "md", color = "primary" }) => {
   const sizeClasses = {
-    sm: 'w-5 h-5',
-    md: 'w-8 h-8',
-    lg: 'w-12 h-12',
-    xl: 'w-16 h-16'
+    sm: "w-5 h-5",
+    md: "w-8 h-8",
+    lg: "w-12 h-12",
+    xl: "w-16 h-16",
   };
 
   const colorClasses = {
-    primary: 'border-primary-600',
-    white: 'border-white',
-    gray: 'border-gray-600'
+    primary: "border-primary-600",
+    white: "border-white",
+    gray: "border-gray-600",
   };
 
   return (

@@ -85,201 +85,189 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 text-slate-900 relative selection:bg-slate-900 selection:text-white">
-      {/* Toast Alert Container */}
-      {toast && (
-        <div className="fixed top-20 right-4 sm:right-6 z-[9999] max-w-md w-full transition-all">
-          <Toast
-            message={toast.message}
-            type={toast.type}
-            onClose={() => setToast(null)}
-          />
-        </div>
-      )}
-
-      <div className="max-w-md w-full space-y-8 bg-white rounded-2xl border border-slate-200 p-8 sm:p-10 shadow-sm">
-        {/* Logo / Branding Header */}
-        <div className="text-center">
-          <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto text-white shadow-sm">
-            <svg
-              className="w-7 h-7"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
+    <div className="min-h-screen bg-[#070b14] text-white py-8 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+        {toast && (
+          <div className="fixed right-4 top-20 z-[9999] w-full max-w-md transition-all sm:right-6">
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast(null)}
+            />
           </div>
-          <h2 className="mt-5 text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
-            Product<span className="font-extrabold text-slate-900">Intel</span>
-          </h2>
-          <p className="mt-1.5 text-xs sm:text-sm text-slate-500">
-            Create your account to get started with risk intelligence
-          </p>
-        </div>
+        )}
 
-        {/* Registration Form */}
-        <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
-          {/* Full Name */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-              Full Name
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <FaUser size={15} />
-              </div>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
-                  errors.name
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-slate-300 focus:border-slate-900 focus:ring-slate-900"
-                } rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 transition-colors`}
-                placeholder="John Doe"
-              />
+        <div className="relative w-full max-w-lg overflow-hidden rounded-[32px] border border-[#162032] bg-[#080d19] p-8 shadow-[0_30px_90px_rgba(0,0,0,0.35)] sm:p-10">
+          <div className="pointer-events-none absolute -left-10 top-0 h-52 w-52 rounded-full bg-[#00F5A0]/10 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 right-0 h-52 w-52 rounded-full bg-[#00F5A0]/5 blur-3xl" />
+
+          <div className="relative text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#21304a] bg-[#141d2e] shadow-[0_0_20px_rgba(0,245,160,0.1)]">
+              <span className="h-5 w-5 rounded-full bg-[#00F5A0] shadow-[0_0_12px_#00F5A0]" />
             </div>
-            {errors.name && (
-              <p className="mt-1.5 text-xs text-red-600 font-medium">
-                {errors.name}
-              </p>
-            )}
-          </div>
-
-          {/* Email Address */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-              Email Address
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <FaEnvelope size={15} />
-              </div>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
-                  errors.email
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-slate-300 focus:border-slate-900 focus:ring-slate-900"
-                } rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 transition-colors`}
-                placeholder="name@company.com"
-              />
-            </div>
-            {errors.email && (
-              <p className="mt-1.5 text-xs text-red-600 font-medium">
-                {errors.email}
-              </p>
-            )}
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-              Password
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <FaLock size={15} />
-              </div>
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className={`w-full pl-10 pr-10 py-2.5 bg-white border ${
-                  errors.password
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-slate-300 focus:border-slate-900 focus:ring-slate-900"
-                } rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 transition-colors`}
-                placeholder="Minimum 8 characters"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
-                title={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <FaEyeSlash size={15} /> : <FaEye size={15} />}
-              </button>
-            </div>
-            {errors.password && (
-              <p className="mt-1.5 text-xs text-red-600 font-medium">
-                {errors.password}
-              </p>
-            )}
-          </div>
-
-          {/* Confirm Password */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-              Confirm Password
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <FaLock size={15} />
-              </div>
-              <input
-                type={showPassword ? "text" : "password"}
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className={`w-full pl-10 pr-3.5 py-2.5 bg-white border ${
-                  errors.confirmPassword
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-slate-300 focus:border-slate-900 focus:ring-slate-900"
-                } rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 transition-colors`}
-                placeholder="Re-enter password"
-              />
-            </div>
-            {errors.confirmPassword && (
-              <p className="mt-1.5 text-xs text-red-600 font-medium">
-                {errors.confirmPassword}
-              </p>
-            )}
-          </div>
-
-          {/* Submit Button */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
-            >
-              {loading ? (
-                <>
-                  <LoadingSpinner size="sm" color="white" />
-                  <span>Creating account...</span>
-                </>
-              ) : (
-                <span>Create Account</span>
-              )}
-            </button>
-          </div>
-
-          {/* Login Link */}
-          <div className="text-center pt-3 border-t border-slate-100">
-            <p className="text-xs text-slate-600">
-              Already have an account?{" "}
-              <Link
-                to="/login"
-                className="font-bold text-slate-900 hover:underline"
-              >
-                Sign in here
-              </Link>
+            <h2 className="mt-5 text-2xl font-black tracking-[0.08em] text-white sm:text-3xl">
+              SENKEN<span className="text-[#00F5A0]">_</span>
+            </h2>
+            <p className="mt-1.5 text-xs text-[#7e8ca0] sm:text-sm">
+              Anticipate Risk. Enable Success.
             </p>
           </div>
-        </form>
+
+          <form className="relative mt-8 space-y-5" onSubmit={handleSubmit}>
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d9cb2]">
+                Full Name
+              </label>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#51627b]">
+                  <FaUser size={15} />
+                </div>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className={`w-full rounded-2xl border bg-[#101726] py-3 pl-10 pr-3.5 text-sm text-white placeholder:text-[#455368] transition-all focus:outline-none ${
+                    errors.name
+                      ? "border-red-500/80 focus:ring-red-500"
+                      : "border-[#1c273c] focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]"
+                  }`}
+                  placeholder="John Doe"
+                />
+              </div>
+              {errors.name && (
+                <p className="mt-1.5 text-xs font-medium text-red-400">
+                  {errors.name}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d9cb2]">
+                Email Address
+              </label>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#51627b]">
+                  <FaEnvelope size={15} />
+                </div>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={`w-full rounded-2xl border bg-[#101726] py-3 pl-10 pr-3.5 text-sm text-white placeholder:text-[#455368] transition-all focus:outline-none ${
+                    errors.email
+                      ? "border-red-500/80 focus:ring-red-500"
+                      : "border-[#1c273c] focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]"
+                  }`}
+                  placeholder="name@company.com"
+                />
+              </div>
+              {errors.email && (
+                <p className="mt-1.5 text-xs font-medium text-red-400">
+                  {errors.email}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d9cb2]">
+                Password
+              </label>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#51627b]">
+                  <FaLock size={15} />
+                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`w-full rounded-2xl border bg-[#101726] py-3 pl-10 pr-10 text-sm text-white placeholder:text-[#455368] transition-all focus:outline-none ${
+                    errors.password
+                      ? "border-red-500/80 focus:ring-red-500"
+                      : "border-[#1c273c] focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]"
+                  }`}
+                  placeholder="Minimum 8 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#51627b] transition-colors hover:text-[#00F5A0]"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <FaEyeSlash size={15} />
+                  ) : (
+                    <FaEye size={15} />
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1.5 text-xs font-medium text-red-400">
+                  {errors.password}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8d9cb2]">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-[#51627b]">
+                  <FaLock size={15} />
+                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className={`w-full rounded-2xl border bg-[#101726] py-3 pl-10 pr-3.5 text-sm text-white placeholder:text-[#455368] transition-all focus:outline-none ${
+                    errors.confirmPassword
+                      ? "border-red-500/80 focus:ring-red-500"
+                      : "border-[#1c273c] focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]"
+                  }`}
+                  placeholder="Re-enter password"
+                />
+              </div>
+              {errors.confirmPassword && (
+                <p className="mt-1.5 text-xs font-medium text-red-400">
+                  {errors.confirmPassword}
+                </p>
+              )}
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00F5A0] px-4 py-3.5 text-sm font-extrabold text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] transition-all duration-200 hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <LoadingSpinner size="sm" color="black" />
+                    <span>Creating account...</span>
+                  </>
+                ) : (
+                  <span>Create Account</span>
+                )}
+              </button>
+            </div>
+
+            <div className="pt-1 text-center">
+              <p className="text-xs text-[#7e8ca0]">
+                Already registered?{" "}
+                <Link
+                  to="/login"
+                  className="font-semibold text-[#00F5A0] hover:underline"
+                >
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

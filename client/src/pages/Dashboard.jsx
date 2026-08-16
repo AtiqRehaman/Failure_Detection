@@ -30,14 +30,15 @@ import {
   FaUndo,
 } from "react-icons/fa";
 
-const COLORS = [
-  "#0f172a",
-  "#334155",
-  "#475569",
-  "#64748b",
-  "#94a3b8",
-  "#cbd5e1",
-  "#e2e8f0",
+// Corelytics UI Vibrant Mint & Cyber Dark Palette
+const CHART_COLORS = [
+  "#00F5A0",
+  "#00D284",
+  "#00B06E",
+  "#38EF7D",
+  "#11998E",
+  "#1DC5D8",
+  "#3B82F6",
 ];
 
 const Dashboard = () => {
@@ -75,7 +76,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       setToast({
-        message: "Failed to load dashboard data",
+        message: "Failed to load dashboard telemetry",
         type: "error",
       });
     } finally {
@@ -109,7 +110,6 @@ const Dashboard = () => {
   // ---------------------------------------------------------
   const filteredProjects = useMemo(() => {
     const results = projects.filter((p) => {
-      // 1. Search Query Filter
       const query = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !query ||
@@ -118,21 +118,17 @@ const Dashboard = () => {
         p?.business_model?.toLowerCase().includes(query) ||
         p?.target_market?.toLowerCase().includes(query);
 
-      // 2. Industry Filter
       const matchesIndustry =
         selectedIndustry === "all" || p?.industry === selectedIndustry;
 
-      // 3. Business Model Filter
       const matchesBusinessModel =
         selectedBusinessModel === "all" ||
         p?.business_model === selectedBusinessModel;
 
-      // 4. Target Market Filter
       const matchesTargetMarket =
         selectedTargetMarket === "all" ||
         p?.target_market === selectedTargetMarket;
 
-      // 5. Budget Range Filter
       let matchesBudget = true;
       const budgetNum = Number(p?.budget) || 0;
       if (selectedBudgetRange === "under1l") {
@@ -143,7 +139,6 @@ const Dashboard = () => {
         matchesBudget = budgetNum > 1000000;
       }
 
-      // 6. Date Range Filter
       let matchesDate = true;
       if (selectedDateRange !== "all" && p?.created_at) {
         const projectDate = new Date(p.created_at);
@@ -167,8 +162,9 @@ const Dashboard = () => {
       );
     });
 
-    // Sort descending by date so most recent projects are first
-    return results.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return results.sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+    );
   }, [
     projects,
     searchQuery,
@@ -179,12 +175,10 @@ const Dashboard = () => {
     selectedDateRange,
   ]);
 
-  // Top 10 most recent projects for the table
   const top10Projects = useMemo(() => {
     return filteredProjects.slice(0, 10);
   }, [filteredProjects]);
 
-  // Reset all filters
   const handleResetFilters = () => {
     setSearchQuery("");
     setSelectedIndustry("all");
@@ -202,7 +196,7 @@ const Dashboard = () => {
     selectedBudgetRange !== "all" ||
     selectedDateRange !== "all";
 
-  // Calculate statistics derived from filtered projects
+  // Calculate dynamic stats
   const additionalStats = useMemo(() => {
     if (!Array.isArray(filteredProjects) || filteredProjects.length === 0) {
       return {
@@ -220,7 +214,7 @@ const Dashboard = () => {
     }, 0);
 
     const validBudgetProjects = filteredProjects.filter(
-      (p) => !isNaN(Number(p?.budget)) && Number(p?.budget) > 0
+      (p) => !isNaN(Number(p?.budget)) && Number(p?.budget) > 0,
     );
     const countForAvg =
       validBudgetProjects.length > 0
@@ -229,10 +223,10 @@ const Dashboard = () => {
 
     const avgBudget = countForAvg > 0 ? totalBudget / countForAvg : 0;
     const industries = new Set(
-      filteredProjects.map((p) => p?.industry).filter(Boolean)
+      filteredProjects.map((p) => p?.industry).filter(Boolean),
     );
     const businessModels = new Set(
-      filteredProjects.map((p) => p?.business_model).filter(Boolean)
+      filteredProjects.map((p) => p?.business_model).filter(Boolean),
     );
 
     return {
@@ -244,7 +238,7 @@ const Dashboard = () => {
     };
   }, [filteredProjects]);
 
-  // Indian Numbering System Formatter
+  // Indian Currency Notation
   const formatCurrency = (amount) => {
     const numericAmount = Number(amount);
     if (isNaN(numericAmount) || numericAmount === 0) return "₹0";
@@ -260,7 +254,7 @@ const Dashboard = () => {
     return `₹${numericAmount.toLocaleString("en-IN")}`;
   };
 
-  // Trend chart data
+  // Trend chart dataset
   const trendsData = useMemo(() => {
     const grouped = {};
     filteredProjects.forEach((p) => {
@@ -299,7 +293,6 @@ const Dashboard = () => {
       .sort((a, b) => a.monthIndex - b.monthIndex);
   }, [filteredProjects]);
 
-  // Budget by industry
   const budgetByIndustry = useMemo(() => {
     const industries = {};
     filteredProjects.forEach((p) => {
@@ -331,24 +324,23 @@ const Dashboard = () => {
     return isNaN(growth) ? 0 : growth;
   }, [trendsData]);
 
-  // Navigate to detailed project analysis view
   const handleViewAnalysis = (projectId) => {
     navigate(`/analysis/${projectId}`);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" color="black" />
+      <div className="min-h-screen bg-[#070b14] flex items-center justify-center">
+        <LoadingSpinner size="lg" color="#00F5A0" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-slate-900 selection:text-white">
-      {/* Toast Notification */}
+    <div className="min-h-screen bg-[#070b14] text-white py-8 px-4 sm:px-6 lg:px-8 font-sans antialiased selection:bg-[#00F5A0] selection:text-black">
+      {/* Toast Alert */}
       {toast && (
-        <div className="fixed top-20 right-4 sm:right-6 z-[9999] max-w-md w-full transition-all">
+        <div className="fixed top-6 right-4 sm:right-6 z-[9999] max-w-md w-full transition-all">
           <Toast
             message={toast.message}
             type={toast.type}
@@ -357,59 +349,62 @@ const Dashboard = () => {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200/80 border border-slate-300 text-slate-800 text-xs font-semibold tracking-wider uppercase mb-3">
-              <span className="w-2 h-2 rounded-full bg-slate-900" />
-              Analytics Overview
+      {/* Main Corelytics Container Shell */}
+      <div className="max-w-7xl mx-auto bg-[#080d19] rounded-[36px] border border-[#162032] p-5 sm:p-8 lg:p-10 shadow-[0_30px_90px_rgba(0,0,0,0.4)] relative overflow-hidden space-y-8">
+        {/* Subtle Ambient Mint Glow Spheres */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#00F5A0]/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/3 left-0 w-80 h-80 bg-[#00F5A0]/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* 1. Header Toolbar */}
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111a2c] border border-[#1d2c47] text-[11px] font-bold text-[#00F5A0] tracking-wide mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00F5A0] animate-pulse" />
+              <span>AI Summary & Risk Hub</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
-              Dashboard
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              SENKEN Dashboard
             </h1>
-            <p className="mt-1 text-base text-slate-600 max-w-2xl leading-relaxed">
-              Overview of all projects and market intelligence insights.
+            <p className="text-xs text-[#7e8ca0]">
+              Anticipate Risk. Enable Success.
             </p>
           </div>
         </div>
 
-        {/* Search Bar & Filter Controls */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+        {/* 2. Interactive Search & Unified Filter Strip */}
+        <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-5 space-y-4">
+          {/* Search Box */}
           <div className="relative flex items-center">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-              <FaSearch size={16} />
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#51627b]">
+              <FaSearch size={14} />
             </div>
-
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search projects by Name, Industry, Business Model, or Target Market..."
-              className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 transition-colors"
+              className="w-full pl-11 pr-10 py-3 bg-[#131c31] border border-[#1e2c47] rounded-2xl text-xs text-white placeholder:text-[#52637c] focus:outline-none focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0] transition-all"
             />
-
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
-                title="Clear search query"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#52637c] hover:text-white"
               >
-                <FaTimes size={16} />
+                <FaTimes size={14} />
               </button>
             )}
           </div>
 
-          {/* Filters Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
+          {/* Filter Pills Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-[#6a7b95] mb-1">
                 Industry
               </label>
               <select
                 value={selectedIndustry}
                 onChange={(e) => setSelectedIndustry(e.target.value)}
-                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+                className="w-full py-2 px-3 bg-[#131c31] border border-[#1e2c47] rounded-xl text-xs font-medium text-[#c0ccd9] focus:outline-none focus:border-[#00F5A0]"
               >
                 <option value="all">All Industries</option>
                 {filterOptions.industries.map((ind) => (
@@ -421,13 +416,13 @@ const Dashboard = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-[#6a7b95] mb-1">
                 Business Model
               </label>
               <select
                 value={selectedBusinessModel}
                 onChange={(e) => setSelectedBusinessModel(e.target.value)}
-                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+                className="w-full py-2 px-3 bg-[#131c31] border border-[#1e2c47] rounded-xl text-xs font-medium text-[#c0ccd9] focus:outline-none focus:border-[#00F5A0]"
               >
                 <option value="all">All Models</option>
                 {filterOptions.businessModels.map((bm) => (
@@ -439,15 +434,15 @@ const Dashboard = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-[#6a7b95] mb-1">
                 Target Market
               </label>
               <select
                 value={selectedTargetMarket}
                 onChange={(e) => setSelectedTargetMarket(e.target.value)}
-                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+                className="w-full py-2 px-3 bg-[#131c31] border border-[#1e2c47] rounded-xl text-xs font-medium text-[#c0ccd9] focus:outline-none focus:border-[#00F5A0]"
               >
-                <option value="all">All Target Markets</option>
+                <option value="all">All Markets</option>
                 {filterOptions.targetMarkets.map((tm) => (
                   <option key={tm} value={tm}>
                     {tm}
@@ -457,13 +452,13 @@ const Dashboard = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-[#6a7b95] mb-1">
                 Budget Range
               </label>
               <select
                 value={selectedBudgetRange}
                 onChange={(e) => setSelectedBudgetRange(e.target.value)}
-                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+                className="w-full py-2 px-3 bg-[#131c31] border border-[#1e2c47] rounded-xl text-xs font-medium text-[#c0ccd9] focus:outline-none focus:border-[#00F5A0]"
               >
                 <option value="all">All Budgets</option>
                 <option value="under1l">Under ₹1 Lakh</option>
@@ -473,133 +468,144 @@ const Dashboard = () => {
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Date Filter
+              <label className="block text-[10px] font-mono uppercase tracking-wider text-[#6a7b95] mb-1">
+                Date Timeline
               </label>
               <select
                 value={selectedDateRange}
                 onChange={(e) => setSelectedDateRange(e.target.value)}
-                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-slate-900"
+                className="w-full py-2 px-3 bg-[#131c31] border border-[#1e2c47] rounded-xl text-xs font-medium text-[#c0ccd9] focus:outline-none focus:border-[#00F5A0]"
               >
                 <option value="all">All Time</option>
-                <option value="week">Past Week</option>
-                <option value="month">Past Month</option>
+                <option value="week">Past 7 Days</option>
+                <option value="month">Past 30 Days</option>
               </select>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-500">
-            <span className="font-medium">
-              Showing <strong>{filteredProjects.length}</strong> matching project(s)
+          {/* Active Summary */}
+          <div className="flex items-center justify-between pt-2 border-t border-[#182338] text-xs text-[#7e8ca0]">
+            <span>
+              Telemetry filtered to{" "}
+              <strong className="text-[#00F5A0]">
+                {filteredProjects.length}
+              </strong>{" "}
+              active project(s)
             </span>
-
             {isFilterActive && (
               <button
                 onClick={handleResetFilters}
-                className="inline-flex items-center gap-1.5 text-slate-900 font-bold hover:underline"
+                className="inline-flex items-center gap-1.5 text-white font-bold hover:text-[#00F5A0] transition-colors"
               >
                 <FaUndo size={10} />
-                <span>Reset All Filters</span>
+                <span>Reset Filters</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        {/* 3. Hero Feature Tile + Stat Metric Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Main Hero Card (Inspired by the $120,873 Cyan Revenue Card) */}
+          <div className="lg:col-span-5 bg-[#00F5A0] text-[#080d19] rounded-3xl p-6 sm:p-7 flex flex-col justify-between shadow-[0_15px_40px_rgba(0,245,160,0.25)] relative overflow-hidden">
             <div className="flex items-center justify-between">
+              <span className="text-xs font-mono uppercase tracking-wider font-extrabold text-[#05432d]">
+                Aggregate Capital Scored
+              </span>
+              <div className="w-8 h-8 rounded-full bg-[#080d19] text-[#00F5A0] flex items-center justify-center font-bold text-xs">
+                ↗
+              </div>
+            </div>
+
+            <div className="my-6">
+              <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                {formatCurrency(additionalStats.totalBudget)}
+              </h3>
+              <p className="text-xs font-semibold text-[#05432d] mt-1">
+                Avg: {formatCurrency(additionalStats.avgBudget)} per candidate
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-[#080d19] text-white text-[11px] font-bold">
+                {growthPercentage >= 0 ? "+" : ""}
+                {growthPercentage.toFixed(1)}% YoY
+              </span>
+              <span className="text-[11px] font-bold text-[#05432d]">
+                From {filteredProjects.length} analyzed batches
+              </span>
+            </div>
+          </div>
+
+          {/* 3 Secondary Stats Tiles */}
+          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-5 flex flex-col justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Total Projects
-                </p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#6a7b95]">
+                  Active Projects
+                </span>
+                <p className="text-2xl font-extrabold text-white mt-1">
                   {additionalStats.totalProjects}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-900">
-                <FaProjectDiagram size={20} />
+              <div className="mt-4 pt-3 border-t border-[#162135] flex items-center justify-between text-xs text-[#7e8ca0]">
+                <span>In Database</span>
+                <FaProjectDiagram className="text-[#00F5A0]" />
               </div>
             </div>
-          </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
+            <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-5 flex flex-col justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Average Budget
-                </p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
-                  {formatCurrency(additionalStats.avgBudget)}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-900">
-                <FaRupeeSign size={20} />
-              </div>
-            </div>
-            {filteredProjects.length > 0 && (
-              <div className="mt-2">
-                <p className="text-xs text-slate-500">
-                  Based on {filteredProjects.length} projects
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Industries
-                </p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#6a7b95]">
+                  Sectors Monitored
+                </span>
+                <p className="text-2xl font-extrabold text-white mt-1">
                   {additionalStats.industryCount}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-900">
-                <FaIndustry size={20} />
+              <div className="mt-4 pt-3 border-t border-[#162135] flex items-center justify-between text-xs text-[#7e8ca0]">
+                <span>Industries</span>
+                <FaIndustry className="text-[#00F5A0]" />
               </div>
             </div>
-          </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between">
+            <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-5 flex flex-col justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Growth Rate
-                </p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#6a7b95]">
+                  Growth Trajectory
+                </span>
+                <p className="text-2xl font-extrabold text-[#00F5A0] mt-1">
                   {growthPercentage >= 0 ? "+" : ""}
                   {growthPercentage.toFixed(1)}%
                 </p>
               </div>
-              <div className="w-12 h-12 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-900">
-                <FaArrowUp size={20} />
+              <div className="mt-4 pt-3 border-t border-[#162135] flex items-center justify-between text-xs text-[#7e8ca0]">
+                <span>MoM Intake</span>
+                <FaArrowUp className="text-[#00F5A0]" />
               </div>
-            </div>
-            <div className="mt-2">
-              <p className="text-xs text-slate-500">Month over month growth</p>
             </div>
           </div>
         </div>
 
-        {/* Project Trends Composed Chart */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
+        {/* 4. Large Composed Trend Chart */}
+        <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-6 space-y-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
+              <div className="w-8 h-8 rounded-xl bg-[#141e33] border border-[#21304f] flex items-center justify-center text-[#00F5A0]">
                 <FaChartLine size={14} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
-                Project Trends
-              </h3>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  Intake Volume & Capital Trajectory
+                </h3>
+                <p className="text-xs text-[#6a7b95]">
+                  Monthly project submissions over time
+                </p>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-medium text-slate-500">
-                Interest over time
-              </span>
-              <div className="w-2 h-2 bg-slate-900 rounded-full"></div>
-            </div>
+            <span className="text-xs font-mono px-3 py-1 rounded-full bg-[#131c31] border border-[#1e2c47] text-[#00F5A0]">
+              Telemetry Live
+            </span>
           </div>
 
           {trendsData.length > 0 ? (
@@ -608,7 +614,7 @@ const Dashboard = () => {
                 <ComposedChart data={trendsData}>
                   <defs>
                     <linearGradient
-                      id="trendGradient"
+                      id="cyberGradient"
                       x1="0"
                       y1="0"
                       x2="0"
@@ -616,107 +622,68 @@ const Dashboard = () => {
                     >
                       <stop
                         offset="5%"
-                        stopColor="#0f172a"
-                        stopOpacity={0.15}
+                        stopColor="#00F5A0"
+                        stopOpacity={0.25}
                       />
-                      <stop
-                        offset="95%"
-                        stopColor="#0f172a"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                    <linearGradient
-                      id="budgetGradient"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="5%"
-                        stopColor="#64748b"
-                        stopOpacity={0.15}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="#64748b"
-                        stopOpacity={0}
-                      />
+                      <stop offset="95%" stopColor="#00F5A0" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
-                  <YAxis yAxisId="left" stroke="#64748b" fontSize={12} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#162238" />
+                  <XAxis dataKey="month" stroke="#6a7b95" fontSize={11} />
+                  <YAxis yAxisId="left" stroke="#6a7b95" fontSize={11} />
                   <YAxis
                     yAxisId="right"
                     orientation="right"
-                    stroke="#64748b"
-                    fontSize={12}
+                    stroke="#6a7b95"
+                    fontSize={11}
                   />
                   <Tooltip
                     formatter={(value, name) => {
                       if (name === "avgBudget") return formatCurrency(value);
                       return value;
                     }}
-                    labelFormatter={(label) => `Month: ${label}`}
                     contentStyle={{
-                      backgroundColor: "#ffffff",
-                      borderColor: "#e2e8f0",
-                      borderRadius: "8px",
-                      color: "#0f172a",
+                      backgroundColor: "#0d1424",
+                      borderColor: "#1d2b45",
+                      borderRadius: "16px",
+                      color: "#fff",
+                      fontSize: "12px",
                     }}
                   />
                   <Area
                     type="monotone"
                     dataKey="count"
-                    stroke="#0f172a"
-                    strokeWidth={2}
-                    fill="url(#trendGradient)"
+                    stroke="#00F5A0"
+                    strokeWidth={3}
+                    fill="url(#cyberGradient)"
                     yAxisId="left"
-                    name="Projects"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="avgBudget"
-                    stroke="#64748b"
-                    strokeWidth={2}
-                    fill="url(#budgetGradient)"
-                    yAxisId="right"
-                    name="Avg Budget"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#0f172a"
-                    strokeWidth={2}
-                    yAxisId="left"
-                    name="Project Count"
-                    dot={{ fill: "#0f172a", r: 3 }}
+                    name="Projects Intake"
                   />
                   <Line
                     type="monotone"
                     dataKey="avgBudget"
-                    stroke="#475569"
+                    stroke="#38EF7D"
                     strokeWidth={2}
                     yAxisId="right"
-                    name="Avg Budget"
-                    dot={{ fill: "#475569", r: 3 }}
+                    name="Average Budget"
+                    dot={{ fill: "#00F5A0", r: 4 }}
                   />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-72 flex items-center justify-center text-slate-400 font-medium text-sm">
-              No data available for current search and filters
+            <div className="h-72 flex items-center justify-center text-[#55657f] text-xs">
+              No trend telemetry matching active filters
             </div>
           )}
         </div>
 
-        {/* Distribution Charts */}
+        {/* 5. Sector Breakdown & Average Budget Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">
-              Industry Distribution
+          {/* Industry Distribution Donut */}
+          <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-6 space-y-4">
+            <h3 className="text-base font-bold text-white">
+              Sector Distribution
             </h3>
             <div className="h-72">
               {(() => {
@@ -725,7 +692,7 @@ const Dashboard = () => {
                     const ind = p?.industry || "Other";
                     acc[ind] = (acc[ind] || 0) + 1;
                     return acc;
-                  }, {})
+                  }, {}),
                 ).map(([name, value]) => ({ name, value }));
 
                 if (
@@ -733,8 +700,8 @@ const Dashboard = () => {
                   pieData.every((d) => d.value === 0)
                 ) {
                   return (
-                    <div className="h-full flex items-center justify-center text-slate-400 font-medium text-sm">
-                      No industry data available
+                    <div className="h-full flex items-center justify-center text-[#55657f] text-xs">
+                      No industry metrics available
                     </div>
                   );
                 }
@@ -748,23 +715,25 @@ const Dashboard = () => {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        outerRadius={80}
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={4}
                         label={({ name, value }) => `${name} (${value})`}
                       >
                         {pieData.map((entry, index) => (
                           <Cell
                             key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
+                            fill={CHART_COLORS[index % CHART_COLORS.length]}
                           />
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value) => [`${value} Projects`, "Count"]}
                         contentStyle={{
-                          backgroundColor: "#ffffff",
-                          borderColor: "#e2e8f0",
-                          borderRadius: "8px",
-                          color: "#0f172a",
+                          backgroundColor: "#0d1424",
+                          borderColor: "#1d2b45",
+                          borderRadius: "16px",
+                          color: "#fff",
+                          fontSize: "12px",
                         }}
                       />
                     </PieChart>
@@ -774,38 +743,38 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">
-              Average Budget by Industry
+          {/* Average Budget by Industry (Custom Bar Fill style like Corelytics image) */}
+          <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-6 space-y-4">
+            <h3 className="text-base font-bold text-white">
+              Sector Budget Allocation
             </h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={budgetByIndustry}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#162238" />
                   <XAxis
                     dataKey="industry"
-                    angle={-45}
+                    angle={-35}
                     textAnchor="end"
-                    height={80}
-                    stroke="#64748b"
-                    fontSize={12}
+                    height={70}
+                    stroke="#6a7b95"
+                    fontSize={11}
                   />
-                  <YAxis stroke="#64748b" fontSize={12} />
+                  <YAxis stroke="#6a7b95" fontSize={11} />
                   <Tooltip
                     formatter={(value) => formatCurrency(value)}
-                    labelFormatter={(label) => `Industry: ${label}`}
                     contentStyle={{
-                      backgroundColor: "#ffffff",
-                      borderColor: "#e2e8f0",
-                      borderRadius: "8px",
-                      color: "#0f172a",
+                      backgroundColor: "#0d1424",
+                      borderColor: "#1d2b45",
+                      borderRadius: "16px",
+                      color: "#fff",
+                      fontSize: "12px",
                     }}
                   />
                   <Bar
                     dataKey="avgBudget"
-                    fill="#0f172a"
-                    name="Average Budget"
-                    radius={[4, 4, 0, 0]}
+                    fill="#00F5A0"
+                    radius={[8, 8, 0, 0]}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -813,47 +782,34 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        {/* 6. Recent Projects Candidate Table */}
+        <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
-                Top 10 Recent Projects
+              <h3 className="text-base font-bold text-white">
+                Recent Scored Projects (Top 10)
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Showing top 10 most recent projects based on selected filters and date
+              <p className="text-xs text-[#6a7b95]">
+                Click any row to open the instant AI failure analysis report
               </p>
             </div>
           </div>
 
           {top10Projects.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-left">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Project Name
-                    </th>
-                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Industry
-                    </th>
-                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Business Model
-                    </th>
-                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Target Market
-                    </th>
-                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Budget
-                    </th>
-                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Submitted Date
-                    </th>
-                    <th className="py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500 text-right">
-                      Action
-                    </th>
+                  <tr className="border-b border-[#182338] text-[11px] font-mono text-[#6a7b95] uppercase">
+                    <th className="py-3 px-4">Project Name</th>
+                    <th className="py-3 px-4">Industry</th>
+                    <th className="py-3 px-4">Business Model</th>
+                    <th className="py-3 px-4">Target Market</th>
+                    <th className="py-3 px-4">Budget</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4 text-right">Inference</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[#141d30]">
                   {top10Projects.map((project) => (
                     <tr
                       key={project.id}
@@ -861,71 +817,58 @@ const Dashboard = () => {
                         setSelectedProject(project);
                         handleViewAnalysis(project.id);
                       }}
-                      className={`group hover:bg-slate-100/80 transition-colors cursor-pointer ${
-                        selectedProject?.id === project.id
-                          ? "bg-slate-50 font-medium"
-                          : ""
-                      }`}
+                      className="hover:bg-[#121a2e] transition-colors cursor-pointer group"
                     >
-                      <td className="py-3.5 px-4 text-sm font-bold text-slate-900 group-hover:underline">
+                      <td className="py-4 px-4 text-xs font-bold text-white group-hover:text-[#00F5A0]">
                         {project.project_name}
                       </td>
-                      <td className="py-3.5 px-4 text-sm text-slate-600">
-                        <span className="px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-800 rounded-md text-xs font-medium">
+                      <td className="py-4 px-4 text-xs text-[#9bb0cb]">
+                        <span className="px-2.5 py-1 rounded-full bg-[#141e33] border border-[#21304f] text-[#00F5A0] text-[10px] font-semibold">
                           {project.industry}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-sm text-slate-600">
+                      <td className="py-4 px-4 text-xs text-[#8ca0be]">
                         {project.business_model}
                       </td>
-                      <td className="py-3.5 px-4 text-sm text-slate-600">
+                      <td className="py-4 px-4 text-xs text-[#8ca0be]">
                         {project.target_market}
                       </td>
-                      <td className="py-3.5 px-4 text-sm font-medium text-slate-900">
+                      <td className="py-4 px-4 text-xs font-mono font-bold text-white">
                         {project.budget
                           ? formatCurrency(project.budget)
                           : "N/A"}
                       </td>
-                      <td className="py-3.5 px-4 text-sm text-slate-500">
+                      <td className="py-4 px-4 text-xs font-mono text-[#62738d]">
                         {project.created_at
                           ? new Date(project.created_at).toLocaleDateString()
                           : "N/A"}
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-4 px-4 text-right">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleViewAnalysis(project.id);
                           }}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5"
-                          title="View Analysis Report"
+                          className="px-3 py-1.5 bg-[#141e33] hover:bg-[#00F5A0] hover:text-[#080d19] text-[#00F5A0] rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 border border-[#21304f]"
                         >
-                          <FaEye size={12} />
-                          <span>Analysis</span>
+                          <FaEye size={11} />
+                          <span>Report</span>
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              
+
               {filteredProjects.length > 10 && (
-                <div className="text-center py-3 text-xs text-slate-500 border-t border-slate-100 font-medium">
-                  Showing top 10 of {filteredProjects.length} matching projects
+                <div className="text-center py-3 text-xs text-[#62738d] border-t border-[#182338]">
+                  Showing top 10 of {filteredProjects.length} candidate projects
                 </div>
               )}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <p className="text-slate-500 font-medium">
-                No projects match the selected search and filter criteria
-              </p>
-              <button
-                onClick={handleResetFilters}
-                className="mt-3 text-xs text-slate-900 font-bold hover:underline"
-              >
-                Clear all filters and search
-              </button>
+            <div className="text-center py-12 text-[#55657f] text-xs">
+              No matching records found. Try adjusting your filters.
             </div>
           )}
         </div>

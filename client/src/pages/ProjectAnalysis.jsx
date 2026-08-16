@@ -14,20 +14,14 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
-  ComposedChart,
-  Line,
-  Area,
 } from "recharts";
 import {
   FaArrowLeft,
   FaCheckCircle,
   FaExclamationTriangle,
-  FaBuilding,
   FaFileAlt,
-  FaDownload,
   FaBrain,
   FaShieldAlt,
-  FaRocket,
   FaInfoCircle,
   FaChartPie,
   FaSatelliteDish,
@@ -35,7 +29,6 @@ import {
   FaChartLine,
   FaUsers,
   FaUserTie,
-  FaRegClock,
 } from "react-icons/fa";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Toast from "../components/Toast";
@@ -57,12 +50,13 @@ const ProjectAnalysis = () => {
   const token = localStorage.getItem("token");
 
   const CHART_COLORS = [
-    "#0f172a",
-    "#334155",
-    "#475569",
-    "#64748b",
-    "#94a3b8",
-    "#cbd5e1",
+    "#00F5A0",
+    "#00D284",
+    "#00B06E",
+    "#38EF7D",
+    "#11998E",
+    "#1DC5D8",
+    "#3B82F6",
   ];
 
   useEffect(() => {
@@ -82,7 +76,6 @@ const ProjectAnalysis = () => {
     try {
       setLoading(true);
 
-      // Get project details
       const projectResponse = await axios.get(`${API_URL}/projects/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -91,29 +84,25 @@ const ProjectAnalysis = () => {
         setProject(projectResponse.data.data);
       }
 
-      // Try to get existing assessment
       try {
         const assessmentResponse = await axios.get(
           `${API_URL}/assessment/${id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
         );
 
         if (assessmentResponse.data.status === "success") {
           const data = assessmentResponse.data.data;
           setAssessment(data);
-          
-          // Extract ML results from assessment
+
           if (data.ml) {
             setMlResult(data.ml);
           } else if (data.prediction) {
-            // Fallback: build ML result from prediction and risks
             const mlData = buildMLFromAssessment(data);
             setMlResult(mlData);
           }
-          
-          // Extract LLM results from SWOT and recommendations
+
           if (data.swot || data.recommendations) {
             setLlmResult({
               swot: data.swot || null,
@@ -146,10 +135,12 @@ const ProjectAnalysis = () => {
       });
     }
     return {
-      success_probability: parseFloat(data.prediction?.success_probability) || 0,
+      success_probability:
+        parseFloat(data.prediction?.success_probability) || 0,
       overall_risk_score: parseFloat(data.prediction?.overall_risk_score) || 0,
       confidence_rating: parseFloat(data.prediction?.confidence_rating) || 0,
-      system_evaluation: data.prediction?.system_evaluation || "Moderate Potential",
+      system_evaluation:
+        data.prediction?.system_evaluation || "Moderate Potential",
       risk_distribution: riskDist,
     };
   };
@@ -167,7 +158,7 @@ const ProjectAnalysis = () => {
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (response.data.status === "success") {
@@ -175,12 +166,12 @@ const ProjectAnalysis = () => {
           message: "Assessment generated successfully!",
           type: "success",
         });
-        // Refresh assessment data
+
         const assessmentResponse = await axios.get(
           `${API_URL}/assessment/${id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
         );
         if (assessmentResponse.data.status === "success") {
           const data = assessmentResponse.data.data;
@@ -195,7 +186,8 @@ const ProjectAnalysis = () => {
     } catch (error) {
       console.error("Error generating assessment:", error);
       setToast({
-        message: error.response?.data?.message || "Failed to generate assessment",
+        message:
+          error.response?.data?.message || "Failed to generate assessment",
         type: "error",
       });
     } finally {
@@ -220,15 +212,14 @@ const ProjectAnalysis = () => {
 
   const getPriorityBadge = (priority) => {
     const styles = {
-      CRITICAL: "bg-slate-900 text-white border-slate-900",
-      HIGH: "bg-slate-800 text-white border-slate-800",
-      MEDIUM: "bg-slate-200 text-slate-800 border-slate-300",
-      LOW: "bg-slate-100 text-slate-700 border-slate-200",
+      CRITICAL: "bg-red-500/10 text-red-300 border-red-400/30",
+      HIGH: "bg-[#00F5A0]/10 text-[#00F5A0] border-[#00F5A0]/30",
+      MEDIUM: "bg-[#111a2c] text-[#d8e5f8] border-[#1d2c47]",
+      LOW: "bg-[#101726] text-[#8ea0b7] border-[#1d2c47]",
     };
     return styles[priority] || styles["MEDIUM"];
   };
 
-  // Prepare risk data for charts
   const getRiskChartData = () => {
     if (!assessment?.risks) return [];
     return assessment.risks.map((risk) => ({
@@ -238,12 +229,15 @@ const ProjectAnalysis = () => {
     }));
   };
 
-  // Prepare radar data for ML results
   const getRadarData = () => {
     if (!mlResult) return [];
     const dist = mlResult.risk_distribution || {};
     return [
-      { subject: "Success", value: mlResult.success_probability || 0, fullMark: 100 },
+      {
+        subject: "Success",
+        value: mlResult.success_probability || 0,
+        fullMark: 100,
+      },
       { subject: "Financial", value: dist.financial || 0, fullMark: 100 },
       { subject: "Market", value: dist.market || 0, fullMark: 100 },
       { subject: "Technical", value: dist.technical || 0, fullMark: 100 },
@@ -252,7 +246,6 @@ const ProjectAnalysis = () => {
     ];
   };
 
-  // Prepare SWOT data from LLM
   const getSWOTData = () => {
     if (llmResult?.swot) {
       const swot = llmResult.swot;
@@ -274,7 +267,13 @@ const ProjectAnalysis = () => {
         summary: swot.summary || "",
       };
     }
-    return { strengths: [], weaknesses: [], opportunities: [], threats: [], summary: "" };
+    return {
+      strengths: [],
+      weaknesses: [],
+      opportunities: [],
+      threats: [],
+      summary: "",
+    };
   };
 
   const swotData = getSWOTData();
@@ -283,20 +282,22 @@ const ProjectAnalysis = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" color="black" />
+      <div className="flex min-h-screen items-center justify-center bg-[#070b14] text-white">
+        <LoadingSpinner size="lg" color="#00F5A0" />
       </div>
     );
   }
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4">
-        <div className="text-center max-w-sm">
-          <p className="text-slate-600 font-medium">Project not found</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#070b14] text-white px-4 py-12">
+        <div className="max-w-sm rounded-[28px] border border-[#162032] bg-[#080d19] p-8 text-center shadow-[0_30px_90px_rgba(0,0,0,0.35)]">
+          <p className="text-base font-semibold text-white">
+            Project not found
+          </p>
           <button
             onClick={() => navigate("/dashboard")}
-            className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors"
+            className="mt-4 rounded-2xl bg-[#00F5A0] px-4 py-2 text-xs font-bold text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] transition-colors hover:bg-[#00dc8f]"
           >
             Back to Dashboard
           </button>
@@ -305,39 +306,49 @@ const ProjectAnalysis = () => {
     );
   }
 
-  const hasAssessment = assessment && (
-    assessment.risks?.length > 0 || 
-    assessment.swot || 
-    assessment.prediction
-  );
+  const hasAssessment =
+    assessment &&
+    (assessment.risks?.length > 0 || assessment.swot || assessment.prediction);
 
-  // Render SWOT Items
   const renderSWOTItems = (items, type) => {
     if (!items || items.length === 0) {
-      return <p className="text-slate-400 text-xs italic">No items identified</p>;
+      return (
+        <p className="text-xs italic text-[#7e8ca0]">No items identified</p>
+      );
     }
 
     const colors = {
-      strengths: "border-green-200 bg-green-50",
-      weaknesses: "border-red-200 bg-red-50",
-      opportunities: "border-blue-200 bg-blue-50",
-      threats: "border-yellow-200 bg-yellow-50",
+      strengths: "border-[#1f8d65]/40 bg-[#0d2c26]",
+      weaknesses: "border-red-500/40 bg-[#2c1520]",
+      opportunities: "border-blue-500/40 bg-[#112238]",
+      threats: "border-yellow-500/40 bg-[#2a2618]",
     };
 
     const icons = {
-      strengths: <FaCheckCircle className="text-green-600 flex-shrink-0" size={14} />,
-      weaknesses: <FaExclamationTriangle className="text-red-600 flex-shrink-0" size={14} />,
-      opportunities: <FaLightbulb className="text-blue-600 flex-shrink-0" size={14} />,
-      threats: <FaShieldAlt className="text-yellow-600 flex-shrink-0" size={14} />,
+      strengths: (
+        <FaCheckCircle className="flex-shrink-0 text-[#00F5A0]" size={14} />
+      ),
+      weaknesses: (
+        <FaExclamationTriangle
+          className="flex-shrink-0 text-red-400"
+          size={14}
+        />
+      ),
+      opportunities: (
+        <FaLightbulb className="flex-shrink-0 text-[#67d2ff]" size={14} />
+      ),
+      threats: (
+        <FaShieldAlt className="flex-shrink-0 text-yellow-400" size={14} />
+      ),
     };
 
     return items.map((item, index) => (
       <div
         key={index}
-        className={`p-3 rounded-xl border ${colors[type]} mb-2 last:mb-0 flex items-start gap-2`}
+        className={`mb-2 flex items-start gap-2 rounded-2xl border p-3 last:mb-0 ${colors[type]}`}
       >
         {icons[type]}
-        <span className="text-xs font-medium text-slate-800 leading-relaxed block">
+        <span className="block text-xs font-medium leading-relaxed text-[#dfeaf7]">
           {item}
         </span>
       </div>
@@ -345,9 +356,9 @@ const ProjectAnalysis = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-slate-900 selection:text-white">
+    <div className="relative min-h-screen bg-[#070b14] text-white py-8 px-4 sm:px-6 lg:px-8 font-sans antialiased selection:bg-[#00F5A0] selection:text-black">
       {toast && (
-        <div className="fixed top-20 right-4 sm:right-6 z-[9999] max-w-md w-full transition-all">
+        <div className="fixed right-4 top-20 z-[9999] w-full max-w-md transition-all sm:right-6">
           <Toast
             message={toast.message}
             type={toast.type}
@@ -356,31 +367,32 @@ const ProjectAnalysis = () => {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3.5">
             <button
               onClick={() => navigate("/dashboard")}
-              className="p-2.5 border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 rounded-xl transition-colors"
+              className="rounded-2xl border border-[#1d2c47] bg-[#101726] p-2.5 text-[#dfeaf7] transition-colors hover:border-[#2a3d5a] hover:text-[#00F5A0]"
               title="Back to Dashboard"
             >
               <FaArrowLeft size={16} />
             </button>
             <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-slate-200/80 border border-slate-300 text-slate-800 text-[11px] font-semibold tracking-wider uppercase mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
-                {mlResult ? "ML-Powered Assessment" : "Project Intelligence Assessment"}
+              <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-[#1d2c47] bg-[#111a2c] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#00F5A0]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#00F5A0]" />
+                {mlResult
+                  ? "ML-Powered Assessment"
+                  : "Project Intelligence Assessment"}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
                 {project.project_name}
               </h1>
-              <div className="flex flex-wrap items-center gap-2.5 mt-1 text-xs text-slate-500 font-medium">
+              <div className="mt-1 flex flex-wrap items-center gap-2.5 text-xs font-medium text-[#8ea0b7]">
                 <span>{project.industry || "N/A"}</span>
                 <span>•</span>
                 <span>{project.business_model || "N/A"}</span>
                 <span>•</span>
-                <span className="font-semibold text-slate-900">
+                <span className="font-semibold text-white">
                   Budget: {formatCurrency(project.budget)}
                 </span>
                 {project.employees_count && (
@@ -405,74 +417,80 @@ const ProjectAnalysis = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              onClick={generateAssessment}
-              disabled={isGenerating}
-              className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
-            >
-              {isGenerating ? (
-                <>
-                  <LoadingSpinner size="sm" color="white" />
-                  <span>{hasAssessment ? "Regenerating..." : "Generating..."}</span>
-                </>
-              ) : (
-                <>
-                  <FaBrain size={14} />
-                  <span>{hasAssessment ? "Regenerate Analysis" : "Generate ML Analysis"}</span>
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            onClick={generateAssessment}
+            disabled={isGenerating}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00F5A0] px-4 py-2.5 text-xs font-extrabold uppercase tracking-[0.15em] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] transition-all hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isGenerating ? (
+              <>
+                <LoadingSpinner size="sm" color="black" />
+                <span>
+                  {hasAssessment ? "Regenerating..." : "Generating..."}
+                </span>
+              </>
+            ) : (
+              <>
+                <FaBrain size={14} />
+                <span>
+                  {hasAssessment
+                    ? "Regenerate Analysis"
+                    : "Generate ML Analysis"}
+                </span>
+              </>
+            )}
+          </button>
         </div>
 
-        {/* ML Results Summary Banner */}
         {mlResult && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
+          <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Success Probability
                 </p>
-                <p className="text-2xl font-extrabold text-slate-900 mt-0.5">
+                <p className="mt-1 text-2xl font-extrabold text-white">
                   {mlResult.success_probability || 0}%
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Overall Risk
                 </p>
-                <p className="text-2xl font-extrabold text-slate-900 mt-0.5">
+                <p className="mt-1 text-2xl font-extrabold text-white">
                   {mlResult.overall_risk_score || 0}%
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Confidence
                 </p>
-                <p className="text-2xl font-extrabold text-slate-900 mt-0.5">
+                <p className="mt-1 text-2xl font-extrabold text-white">
                   {mlResult.confidence_rating || 0}%
                 </p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Prediction
                 </p>
-                <span className="inline-block mt-0.5 px-3 py-1 bg-slate-100 border border-slate-200 text-slate-900 rounded-lg text-xs font-bold">
+                <span className="mt-1 inline-block rounded-xl border border-[#1d2c47] bg-[#111a2c] px-3 py-1 text-xs font-bold text-white">
                   {mlResult.success_probability >= 50 ? "Viable" : "At Risk"}
                 </span>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Evaluation
                 </p>
-                <span className={`inline-block mt-0.5 px-3 py-1 rounded-lg text-xs font-bold border ${
-                  mlResult.system_evaluation?.includes("Very Strong") || mlResult.system_evaluation?.includes("Strong")
-                    ? "bg-green-100 border-green-200 text-green-800"
-                    : mlResult.system_evaluation?.includes("Moderate")
-                    ? "bg-yellow-100 border-yellow-200 text-yellow-800"
-                    : "bg-red-100 border-red-200 text-red-800"
-                }`}>
+                <span
+                  className={`mt-1 inline-block rounded-xl border px-3 py-1 text-xs font-bold ${
+                    mlResult.system_evaluation?.includes("Very Strong") ||
+                    mlResult.system_evaluation?.includes("Strong")
+                      ? "border-[#1f8d65]/40 bg-[#0d2c26] text-[#b5f5d5]"
+                      : mlResult.system_evaluation?.includes("Moderate")
+                        ? "border-yellow-500/40 bg-[#2a2618] text-yellow-200"
+                        : "border-red-500/40 bg-[#2c1520] text-red-200"
+                  }`}
+                >
                   {mlResult.system_evaluation || "Moderate Potential"}
                 </span>
               </div>
@@ -480,8 +498,7 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
-        {/* Navigation Tabs */}
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-1">
+        <div className="flex flex-wrap gap-2 rounded-full border border-[#1d2c47] bg-[#0d1424] p-1.5">
           {[
             { key: "overview", label: "Overview", icon: FaInfoCircle },
             { key: "risks", label: "Risk Assessment", icon: FaShieldAlt },
@@ -494,10 +511,10 @@ const ProjectAnalysis = () => {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 text-xs font-semibold transition-all rounded-lg flex items-center gap-2 ${
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all ${
                   isTabActive
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "bg-[#00F5A0] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.2)]"
+                    : "text-[#9bb0cb] hover:bg-[#101b2d] hover:text-white"
                 }`}
               >
                 <Icon size={12} />
@@ -507,85 +524,93 @@ const ProjectAnalysis = () => {
           })}
         </div>
 
-        {/* Tab 1: Overview */}
         {activeTab === "overview" && (
           <div className="space-y-6">
             {hasAssessment ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                       Risk Categories
                     </p>
-                    <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                    <p className="mt-1 text-2xl font-extrabold text-white">
                       {assessment.risks?.length || 0}
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="mt-0.5 text-[11px] text-[#7e8ca0]">
                       Categories evaluated
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                       SWOT Points
                     </p>
-                    <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                    <p className="mt-1 text-2xl font-extrabold text-white">
                       {(swotData.strengths?.length || 0) +
                         (swotData.weaknesses?.length || 0) +
                         (swotData.opportunities?.length || 0) +
                         (swotData.threats?.length || 0)}
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="mt-0.5 text-[11px] text-[#7e8ca0]">
                       LLM-identified factors
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                       ML Success Score
                     </p>
-                    <p className="text-2xl font-extrabold text-slate-900 mt-1">
+                    <p className="mt-1 text-2xl font-extrabold text-[#00F5A0]">
                       {mlResult?.success_probability || 0}%
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="mt-0.5 text-[11px] text-[#7e8ca0]">
                       CatBoost model prediction
                     </p>
                   </div>
                 </div>
 
-                {/* Radar Chart - ML Results */}
                 {radarData.length > 0 && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">
                         <FaChartLine size={14} />
                       </div>
-                      <h3 className="text-lg font-bold text-slate-900">
+                      <h3 className="text-lg font-bold text-white">
                         ML Success Factors
                       </h3>
-                      <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                      <span className="rounded-full border border-[#1d2c47] bg-[#111a2c] px-2 py-0.5 text-[10px] text-[#7e8ca0]">
                         CatBoost
                       </span>
                     </div>
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <RadarChart data={radarData}>
-                          <PolarGrid stroke="#e2e8f0" />
-                          <PolarAngleAxis dataKey="subject" stroke="#64748b" fontSize={11} />
-                          <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#64748b" fontSize={10} />
+                          <PolarGrid stroke="#162238" />
+                          <PolarAngleAxis
+                            dataKey="subject"
+                            stroke="#7e8ca0"
+                            fontSize={11}
+                          />
+                          <PolarRadiusAxis
+                            angle={30}
+                            domain={[0, 100]}
+                            stroke="#7e8ca0"
+                            fontSize={10}
+                          />
                           <Radar
                             name="Score"
                             dataKey="value"
-                            stroke="#0f172a"
-                            fill="#0f172a"
-                            fillOpacity={0.15}
+                            stroke="#00F5A0"
+                            fill="#00F5A0"
+                            fillOpacity={0.2}
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "#ffffff",
-                              borderColor: "#e2e8f0",
-                              borderRadius: "8px",
-                              color: "#0f172a",
+                              backgroundColor: "#0d1424",
+                              borderColor: "#1d2b45",
+                              borderRadius: "16px",
+                              color: "#fff",
+                              fontSize: "12px",
                             }}
                           />
                         </RadarChart>
@@ -594,32 +619,47 @@ const ProjectAnalysis = () => {
                   </div>
                 )}
 
-                {/* Risk Overview Chart */}
                 {riskChartData.length > 0 && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">
                         <FaSatelliteDish size={14} />
                       </div>
-                      <h3 className="text-lg font-bold text-slate-900">
+                      <h3 className="text-lg font-bold text-white">
                         ML Risk Distribution
                       </h3>
                     </div>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={riskChartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                          <XAxis dataKey="category" stroke="#64748b" fontSize={11} />
-                          <YAxis domain={[0, 100]} stroke="#64748b" fontSize={11} />
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#162238"
+                          />
+                          <XAxis
+                            dataKey="category"
+                            stroke="#7e8ca0"
+                            fontSize={11}
+                          />
+                          <YAxis
+                            domain={[0, 100]}
+                            stroke="#7e8ca0"
+                            fontSize={11}
+                          />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "#ffffff",
-                              borderColor: "#e2e8f0",
-                              borderRadius: "8px",
-                              color: "#0f172a",
+                              backgroundColor: "#0d1424",
+                              borderColor: "#1d2b45",
+                              borderRadius: "16px",
+                              color: "#fff",
+                              fontSize: "12px",
                             }}
                           />
-                          <Bar dataKey="score" fill="#0f172a" radius={[4, 4, 0, 0]}>
+                          <Bar
+                            dataKey="score"
+                            fill="#00F5A0"
+                            radius={[4, 4, 0, 0]}
+                          >
                             {riskChartData.map((entry, index) => (
                               <Cell
                                 key={`cell-${index}`}
@@ -634,26 +674,26 @@ const ProjectAnalysis = () => {
                 )}
               </>
             ) : (
-              <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
-                <div className="max-w-md mx-auto space-y-4">
-                  <div className="w-16 h-16 bg-slate-100 border border-slate-200 text-slate-900 rounded-2xl flex items-center justify-center mx-auto">
+              <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-8 text-center shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                <div className="mx-auto max-w-md space-y-4">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">
                     <FaBrain size={28} />
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900">
+                  <h3 className="text-xl font-bold text-white">
                     No Assessment Generated
                   </h3>
-                  <p className="text-xs text-slate-500 leading-relaxed">
+                  <p className="text-xs leading-relaxed text-[#7e8ca0]">
                     Generate an ML-powered assessment to evaluate risk factors,
                     SWOT matrix, and success predictions using CatBoost models.
                   </p>
                   <button
                     onClick={generateAssessment}
                     disabled={isGenerating}
-                    className="px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-semibold hover:bg-slate-800 transition-colors inline-flex items-center gap-2 shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#00F5A0] px-6 py-3 text-xs font-extrabold uppercase tracking-[0.15em] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isGenerating ? (
                       <>
-                        <LoadingSpinner size="sm" color="white" />
+                        <LoadingSpinner size="sm" color="black" />
                         <span>Generating Assessment...</span>
                       </>
                     ) : (
@@ -669,52 +709,52 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
-        {/* Tab 2: Risk Assessment */}
         {activeTab === "risks" && (
           <div className="space-y-6">
             {hasAssessment && assessment.risks?.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {assessment.risks.map((risk, index) => (
                     <div
                       key={index}
-                      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3"
+                      className="space-y-3 rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h4 className="text-sm font-bold text-slate-900">
+                          <h4 className="text-sm font-bold text-white">
                             {risk.risk_category}
                           </h4>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {risk.risk_description || "ML-predicted risk factor"}
+                          <p className="mt-0.5 text-xs text-[#88a0ba]">
+                            {risk.risk_description ||
+                              "ML-predicted risk factor"}
                           </p>
                         </div>
                         <span
-                          className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold border uppercase ${getPriorityBadge(risk.priority_level)}`}
+                          className={`rounded-lg border px-2.5 py-0.5 text-[10px] font-bold uppercase ${getPriorityBadge(risk.priority_level)}`}
                         >
                           {risk.priority_level || "MEDIUM"}
                         </span>
                       </div>
 
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[11px] font-bold text-slate-600">
+                        <div className="flex justify-between text-[11px] font-bold text-[#c6d1e3]">
                           <span>Risk Rating</span>
                           <span>{risk.risk_score || 0}%</span>
                         </div>
-                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                        <div className="h-2 w-full overflow-hidden rounded-full border border-[#1d2c47] bg-[#101726]">
                           <div
-                            className="h-full bg-slate-900 rounded-full transition-all duration-500"
+                            className="h-full rounded-full bg-[#00F5A0] transition-all duration-500"
                             style={{ width: `${risk.risk_score || 0}%` }}
                           />
                         </div>
                       </div>
 
                       {risk.mitigation_strategy && (
-                        <div className="pt-2 border-t border-slate-100">
-                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        <div className="border-t border-[#1a2333] pt-2">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                             Mitigation Strategy
                           </p>
-                          <p className="text-xs text-slate-700 leading-relaxed mt-0.5">
+                          <p className="mt-0.5 text-xs leading-relaxed text-[#d7e2f0]">
                             {risk.mitigation_strategy}
                           </p>
                         </div>
@@ -723,25 +763,38 @@ const ProjectAnalysis = () => {
                   ))}
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4">
+                <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                  <h3 className="mb-4 text-lg font-bold text-white">
                     Risk Overview Spectrum
                   </h3>
                   <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={riskChartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="category" stroke="#64748b" fontSize={11} />
-                        <YAxis domain={[0, 100]} stroke="#64748b" fontSize={11} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#162238" />
+                        <XAxis
+                          dataKey="category"
+                          stroke="#7e8ca0"
+                          fontSize={11}
+                        />
+                        <YAxis
+                          domain={[0, 100]}
+                          stroke="#7e8ca0"
+                          fontSize={11}
+                        />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "#ffffff",
-                            borderColor: "#e2e8f0",
-                            borderRadius: "8px",
-                            color: "#0f172a",
+                            backgroundColor: "#0d1424",
+                            borderColor: "#1d2b45",
+                            borderRadius: "16px",
+                            color: "#fff",
+                            fontSize: "12px",
                           }}
                         />
-                        <Bar dataKey="score" fill="#0f172a" radius={[4, 4, 0, 0]}>
+                        <Bar
+                          dataKey="score"
+                          fill="#00F5A0"
+                          radius={[4, 4, 0, 0]}
+                        >
                           {riskChartData.map((entry, index) => (
                             <Cell
                               key={`cell-${index}`}
@@ -755,8 +808,8 @@ const ProjectAnalysis = () => {
                 </div>
               </>
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-xs font-semibold text-slate-500">
+              <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-12 text-center shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                <p className="text-xs font-semibold text-[#7e8ca0]">
                   No risk assessment available. Click "Generate ML Analysis" to
                   calculate risk metrics using CatBoost models.
                 </p>
@@ -765,49 +818,51 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
-        {/* Tab 3: SWOT Matrix (LLM Generated) */}
         {activeTab === "swot" && (
           <div className="space-y-6">
             {hasAssessment &&
             (swotData.strengths?.length > 0 ||
               swotData.weaknesses?.length > 0) ? (
               <>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="rounded-full border border-[#1d2c47] bg-[#111a2c] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#00F5A0]">
                     LLM-Generated
                   </span>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[#7e8ca0]">
                     Qualitative analysis based on ML results
                   </p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
-                      <FaCheckCircle className="text-slate-900" size={14} />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <h4 className="mb-3.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-white">
+                      <FaCheckCircle className="text-[#00F5A0]" size={14} />
                       Strengths
                     </h4>
                     {renderSWOTItems(swotData.strengths, "strengths")}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
-                      <FaExclamationTriangle className="text-slate-900" size={14} />
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <h4 className="mb-3.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-white">
+                      <FaExclamationTriangle
+                        className="text-red-400"
+                        size={14}
+                      />
                       Weaknesses
                     </h4>
                     {renderSWOTItems(swotData.weaknesses, "weaknesses")}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
-                      <FaLightbulb className="text-slate-900" size={14} />
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <h4 className="mb-3.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-white">
+                      <FaLightbulb className="text-[#67d2ff]" size={14} />
                       Opportunities
                     </h4>
                     {renderSWOTItems(swotData.opportunities, "opportunities")}
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 mb-3.5 flex items-center gap-2">
-                      <FaShieldAlt className="text-slate-900" size={14} />
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <h4 className="mb-3.5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-white">
+                      <FaShieldAlt className="text-yellow-400" size={14} />
                       Threats
                     </h4>
                     {renderSWOTItems(swotData.threats, "threats")}
@@ -815,19 +870,19 @@ const ProjectAnalysis = () => {
                 </div>
 
                 {swotData.summary && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-5 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#7e8ca0]">
                       SWOT Summary
                     </p>
-                    <p className="text-sm text-slate-700 leading-relaxed mt-1">
+                    <p className="mt-2 text-sm leading-relaxed text-[#dfeaf7]">
                       {swotData.summary}
                     </p>
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-xs font-semibold text-slate-500">
+              <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-12 text-center shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                <p className="text-xs font-semibold text-[#7e8ca0]">
                   No SWOT matrix available. Generate the analysis to display
                   LLM-generated SWOT data.
                 </p>
@@ -836,82 +891,81 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
-        {/* Tab 4: Project Details */}
         {activeTab === "details" && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-8 h-8 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-900">
+          <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">
                 <FaFileAlt size={14} />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-white">
                 Project Specifications
               </h3>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Project Name
                 </p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
+                <p className="mt-1 text-sm font-bold text-white">
                   {project.project_name}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Industry
                 </p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
+                <p className="mt-1 text-sm font-bold text-white">
                   {project.industry || "N/A"}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Business Model
                 </p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
+                <p className="mt-1 text-sm font-bold text-white">
                   {project.business_model || "N/A"}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Target Market Size
                 </p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
+                <p className="mt-1 text-sm font-bold text-white">
                   {project.target_market_size || "N/A"}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Budget Allocation
                 </p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
+                <p className="mt-1 text-sm font-bold text-white">
                   {formatCurrency(project.budget)}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Employees
                 </p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
+                <p className="mt-1 text-sm font-bold text-white">
                   {project.employees_count || "N/A"}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Founder Experience
                 </p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
+                <p className="mt-1 text-sm font-bold text-white">
                   {project.founder_experience_years !== undefined
                     ? `${project.founder_experience_years} years`
                     : "N/A"}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   Submitted Date
                 </p>
-                <p className="text-sm font-bold text-slate-900 mt-1">
+                <p className="mt-1 text-sm font-bold text-white">
                   {project.created_at
                     ? new Date(project.created_at).toLocaleDateString()
                     : "N/A"}
@@ -919,43 +973,52 @@ const ProjectAnalysis = () => {
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-slate-100">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div className="mt-6 border-t border-[#1a2333] pt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                 Executive Overview
               </p>
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mt-1">
+              <p className="mt-1 text-xs leading-relaxed text-[#dfeaf7] sm:text-sm">
                 {project.description || "No description provided"}
               </p>
             </div>
 
-            {/* ML Results Section */}
             {mlResult && (
-              <div className="mt-6 pt-4 border-t border-slate-100">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+              <div className="mt-6 border-t border-[#1a2333] pt-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#7e8ca0]">
                   ML Analysis Results
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p className="text-[10px] text-slate-500">Success</p>
-                    <p className="text-sm font-bold text-slate-900">{mlResult.success_probability || 0}%</p>
-                  </div>
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p className="text-[10px] text-slate-500">Overall Risk</p>
-                    <p className="text-sm font-bold text-slate-900">{mlResult.overall_risk_score || 0}%</p>
-                  </div>
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p className="text-[10px] text-slate-500">Confidence</p>
-                    <p className="text-sm font-bold text-slate-900">{mlResult.confidence_rating || 0}%</p>
-                  </div>
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p className="text-[10px] text-slate-500">Prediction</p>
-                    <p className="text-sm font-bold text-slate-900">
-                      {mlResult.success_probability >= 50 ? "Viable" : "At Risk"}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                  <div className="rounded-2xl border border-[#1d2c47] bg-[#111a2c] p-3">
+                    <p className="text-[10px] text-[#7e8ca0]">Success</p>
+                    <p className="text-sm font-bold text-white">
+                      {mlResult.success_probability || 0}%
                     </p>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p className="text-[10px] text-slate-500">Evaluation</p>
-                    <p className="text-sm font-bold text-slate-900">{mlResult.system_evaluation || "Moderate"}</p>
+                  <div className="rounded-2xl border border-[#1d2c47] bg-[#111a2c] p-3">
+                    <p className="text-[10px] text-[#7e8ca0]">Overall Risk</p>
+                    <p className="text-sm font-bold text-white">
+                      {mlResult.overall_risk_score || 0}%
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[#1d2c47] bg-[#111a2c] p-3">
+                    <p className="text-[10px] text-[#7e8ca0]">Confidence</p>
+                    <p className="text-sm font-bold text-white">
+                      {mlResult.confidence_rating || 0}%
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[#1d2c47] bg-[#111a2c] p-3">
+                    <p className="text-[10px] text-[#7e8ca0]">Prediction</p>
+                    <p className="text-sm font-bold text-white">
+                      {mlResult.success_probability >= 50
+                        ? "Viable"
+                        : "At Risk"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[#1d2c47] bg-[#111a2c] p-3">
+                    <p className="text-[10px] text-[#7e8ca0]">Evaluation</p>
+                    <p className="text-sm font-bold text-white">
+                      {mlResult.system_evaluation || "Moderate"}
+                    </p>
                   </div>
                 </div>
               </div>
