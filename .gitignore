@@ -38,3 +38,7 @@ coverage/
 # Temp files
 tmp/
 temp/
+
+__pycache__/
+*.py[cod]
+*$py.class

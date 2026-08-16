@@ -1,6 +1,7 @@
 const { body, validationResult } = require('express-validator');
-const { VALID_INDUSTRIES, VALID_BUSINESS_MODELS, BUDGET_MIN, BUDGET_MAX } = require('../config/constants');
+const { VALID_INDUSTRIES, VALID_BUSINESS_MODELS } = require('../config/constants');
 
+// Updated validation rules for Milestone 3
 const validateProject = [
     body('projectName')
         .trim()
@@ -20,15 +21,26 @@ const validateProject = [
         .isIn(VALID_BUSINESS_MODELS).withMessage(`Business model must be one of: ${VALID_BUSINESS_MODELS.join(', ')}`)
         .escape(),
 
-    body('targetMarket')
+    // Updated: targetMarketSize (replaces targetMarket)
+    body('targetMarketSize')
         .trim()
-        .notEmpty().withMessage('Target market is required')
-        .isLength({ min: 3, max: 255 }).withMessage('Target market must be between 3 and 255 characters')
+        .notEmpty().withMessage('Target market size is required')
+        .isIn(['Small', 'Medium', 'Large']).withMessage('Target market size must be Small, Medium, or Large')
         .escape(),
 
     body('budget')
-        .optional()
-        .isFloat({ min: BUDGET_MIN, max: BUDGET_MAX }).withMessage(`Budget must be between ${BUDGET_MIN} and ${BUDGET_MAX}`),
+        .notEmpty().withMessage('Budget is required')
+        .isFloat({ min: 0 }).withMessage('Budget must be a positive number'),
+
+    // New: employeesCount validation
+    body('employeesCount')
+        .notEmpty().withMessage('Number of employees is required')
+        .isInt({ min: 1 }).withMessage('Number of employees must be at least 1'),
+
+    // New: founderExperienceYears validation
+    body('founderExperienceYears')
+        .notEmpty().withMessage('Founder experience is required')
+        .isInt({ min: 0 }).withMessage('Founder experience must be 0 or more'),
 
     body('description')
         .trim()
@@ -37,6 +49,7 @@ const validateProject = [
         .escape()
 ];
 
+// Check validation results
 const handleValidationErrors = (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

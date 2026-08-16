@@ -8,6 +8,7 @@ const projectRoutes = require("./routes/project.routes");
 const authRoutes = require("./routes/auth.routes");
 const assessmentRoutes = require("./routes/assessment.routes");
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
+const mlService = require("./services/ml.service");
 
 // Load environment variables
 dotenv.config();
@@ -60,6 +61,18 @@ const startServer = async () => {
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);
+  }
+
+  try {
+    console.log("🧠 Initializing ML service...");
+    await mlService.initialize();
+    if (mlService.isLoaded()) {
+      console.log("✅ ML service is ready");
+    } else {
+      console.warn("⚠️ ML service failed to initialize");
+    }
+  } catch (mlError) {
+    console.error("❌ ML service initialization error:", mlError.message);
   }
 };
 

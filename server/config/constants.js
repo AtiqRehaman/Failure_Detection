@@ -30,6 +30,7 @@ module.exports = {
         'Franchise',
         'Other'
     ],
+    VALID_MARKET_SIZES: ['Small', 'Medium', 'Large'],
     BUDGET_MIN: 0,
     BUDGET_MAX: 1000000000
 };

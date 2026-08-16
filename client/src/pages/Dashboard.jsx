@@ -18,7 +18,6 @@ import {
 import { getProjects } from "../services/api";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Toast from "../components/Toast";
-import MarketIntelligencePanel from "./MarketIntelligencePanel";
 import {
   FaProjectDiagram,
   FaIndustry,
@@ -813,11 +812,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-
-        {/* Market Intelligence Panel */}
-        <MarketIntelligencePanel
-          selectedProject={selectedProject || filteredProjects[0]}
-        />
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">

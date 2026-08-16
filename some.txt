@@ -1,3 +1,106 @@
+-- Final Response api
+
+{
+  "status": "success",
+  "message": "Assessment generated successfully",
+  "data": {
+    "ml": {
+      "success_probability": 27.32,
+      "success_prediction": "At Risk",
+      "overall_risk_score": 49.1,
+      "confidence_rating": 72.68,
+      "system_evaluation": "High Risk",
+      "risk_distribution": {
+        "financial": 84.35,
+        "market": 66.23,
+        "technical": 9.4,
+        "business": 41.79,
+        "regulatory": 19.38
+      }
+    },
+    "llm": {
+      "mitigating_strategies": {
+        "financial": [
+          "Implement a cost-saving budgeting plan to reduce operational expenses by 15% within the first six months.",
+          "Secure a small business loan or seek angel investors to increase the capital base and mitigate financial strain.",
+          "Develop a revenue model that includes premium features for schools and parents, diversifying income sources."
+        ],
+        "market": [
+          "Conduct market research to identify gaps in the K-12 gamification market and tailor the product to meet those needs.",
+          "Engage with educational institutions to pilot the platform and gather feedback for improvements.",
+          "Leverage social media and educational forums to increase brand awareness and attract early adopters."
+        ],
+        "technical": [
+          "Invest in regular security audits and updates to ensure the platform's data protection measures are up-to-date.",
+          "Implement a robust user feedback system to quickly address technical issues and improve user experience.",
+          "Develop a scalable infrastructure to handle increased user load as the platform grows."
+        ],
+        "business": [
+          "Create a detailed business plan outlining the product roadmap and financial projections to attract potential investors.",
+          "Establish clear roles and responsibilities for the sole employee to ensure efficient operations.",
+          "Develop a marketing strategy that includes both digital and traditional channels to reach the target audience."
+        ],
+        "regulatory": [
+          "Stay informed about educational technology regulations and ensure compliance with all relevant laws and standards.",
+          "Establish partnerships with educational institutions to navigate any regulatory hurdles that may arise.",
+          "Implement a privacy policy and terms of service that protect user data and comply with data protection laws."
+        ]
+      },
+      "swot": {
+        "strengths": [
+          "Unique gamification approach to learning that can increase engagement and retention among K-12 students.",
+          "Potential for rapid growth in the K-12 education market due to the increasing demand for innovative learning tools.",
+          "Low initial capital requirement due to the single-founder structure, allowing for rapid prototyping and iteration."
+        ],
+        "weaknesses": [
+          "Limited experience of the founder in the education industry and gamification market.",
+          "High competition from established educational technology companies with larger budgets and resources.",
+          "Potential for high technical and market risks, as identified by the ML analysis."
+        ],
+        "opportunities": [
+          "Expanding digital education market, especially post-pandemic, where remote learning tools are in high demand.",
+          "Potential partnerships with educational institutions and content providers to enhance the platform's offerings.",
+          "Government initiatives to promote digital literacy and technology in education."
+        ],
+        "threats": [
+          "Regulatory changes that could impact the operation of educational technology platforms.",
+          "Technological advancements that could render the current platform obsolete if not regularly updated.",
+          "Economic downturns that could affect the ability of schools and parents to invest in educational technology."
+        ],
+        "summary": "The EdTech Gamification project has significant potential for growth and market penetration, but it also faces substantial risks, particularly in the financial and market sectors. The project's strengths lie in its innovative approach and potential market opportunities, but it must address its weaknesses and mitigate the identified risks to ensure long-term success."
+      },
+      "executive_summary": "The EdTech Gamification project is at risk of failure with a success probability of 27.32%. Despite the high risk score, the project has potential in the K-12 education market. Urgent mitigation strategies are required to address the high financial and market risks, while preventive measures should be taken for technical, business, and regulatory risks. The project requires a strong focus on cost management, market expansion, and technical scalability to improve its chances of success.",
+      "recommended_actions": [
+        {
+          "action": "Secure additional funding to increase the capital base and reduce financial risk.",
+          "priority": "HIGH",
+          "impact": "Improves financial stability and allows for scaling up operations."
+        },
+        "Conduct a thorough market analysis to identify target customer segments and refine the product offering.",
+        {
+          "priority": "HIGH",
+          "impact": "Increases market reach and customer acquisition."
+        },
+        "Implement a robust technical infrastructure to ensure scalability and reliability.",
+        {
+          "priority": "HIGH",
+          "impact": "Reduces technical risk and improves user experience."
+        },
+        "Develop a comprehensive business plan and seek partnerships with educational institutions.",
+        {
+          "priority": "HIGH",
+          "impact": "Enhances business operations and reduces regulatory risk."
+        },
+        "Regularly monitor and comply with educational technology regulations.",
+        {
+          "priority": "MEDIUM",
+          "impact": "Ensures legal compliance and reduces regulatory risk."
+        }
+      ]
+    }
+  }
+}
+
 -- Local LLM
 {
   "status": "success",
