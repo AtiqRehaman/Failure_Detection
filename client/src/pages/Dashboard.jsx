@@ -358,16 +358,9 @@ const Dashboard = () => {
         {/* 1. Header Toolbar */}
         <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#111a2c] border border-[#1d2c47] text-[11px] font-bold text-[#00F5A0] tracking-wide mb-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00F5A0] animate-pulse" />
-              <span>AI Summary & Risk Hub</span>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              SENKEN Dashboard
+              Dashboard
             </h1>
-            <p className="text-xs text-[#7e8ca0]">
-              Anticipate Risk. Enable Success.
-            </p>
           </div>
         </div>
 
