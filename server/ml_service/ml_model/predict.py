@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 ML Prediction Service for CatBoost Models
-Uses pandas DataFrame with categorical features properly handled
 """
 
 import sys
@@ -14,7 +13,6 @@ import warnings
 import numpy as np
 import pandas as pd
 
-# Suppress warnings
 warnings.filterwarnings('ignore')
 
 # Global model instances
@@ -22,7 +20,6 @@ SUCCESS_MODEL = None
 RISK_MODEL = None
 MODELS_LOADED = False
 
-# Feature definitions
 CATEGORICAL_FEATURES = [
     "Industry",
     "Business_Model",
@@ -46,7 +43,6 @@ RISK_NAMES = [
     "regulatory"
 ]
 
-# Load models
 def load_models():
     """Load models once at startup"""
     global SUCCESS_MODEL, RISK_MODEL, MODELS_LOADED
@@ -60,7 +56,7 @@ def load_models():
     try:
         from catboost import CatBoostClassifier, CatBoostRegressor
         
-        # Load success model (Classifier)
+        # Load success model
         success_path = os.path.join(MODEL_DIR, 'startup_success_catboost.cbm')
         if not os.path.exists(success_path):
             return {"success": False, "error": f"Success model not found: {success_path}"}
@@ -68,7 +64,7 @@ def load_models():
         SUCCESS_MODEL = CatBoostClassifier()
         SUCCESS_MODEL.load_model(success_path)
         
-        # Load risk model (Regressor)
+        # Load risk model
         risk_path = os.path.join(MODEL_DIR, 'startup_risk_multireg_model.cbm')
         if not os.path.exists(risk_path):
             return {"success": False, "error": f"Risk model not found: {risk_path}"}
@@ -81,11 +77,9 @@ def load_models():
         return {"success": True, "message": "Models loaded successfully"}
     except Exception as e:
         print(f"❌ Error loading models: {str(e)}", file=sys.stderr)
-        print(traceback.format_exc(), file=sys.stderr)
         return {"success": False, "error": str(e)}
 
 def get_system_evaluation(success_probability, overall_risk):
-    """Get system evaluation based on success probability and overall risk"""
     if success_probability >= 80 and overall_risk < 30:
         return "Very Strong Potential"
     elif success_probability >= 65 and overall_risk < 40:
@@ -98,17 +92,16 @@ def get_system_evaluation(success_probability, overall_risk):
         return "High Risk"
 
 def calculate_confidence(success_probability):
-    """Calculate confidence rating"""
     confidence = max(success_probability, 100 - success_probability)
     return round(confidence, 2)
 
 def predict_full(features):
-    """Full prediction using the same logic as inference.py"""
+    """Full prediction"""
     try:
         if SUCCESS_MODEL is None or RISK_MODEL is None:
             return {"success": False, "error": "Models not loaded"}
         
-        # Create DataFrame with proper column names
+        # Create DataFrame
         sample = pd.DataFrame([{
             "Industry": features.get('industry', 'Technology'),
             "Business_Model": features.get('business_model', 'B2B'),
@@ -118,7 +111,7 @@ def predict_full(features):
             "Founder_Experience_Years": int(features.get('founder_experience_years', 0))
         }])
         
-        # Convert categorical columns to string
+        # Convert categorical
         for column in CATEGORICAL_FEATURES:
             sample[column] = sample[column].fillna("Unknown").astype(str)
         
@@ -131,7 +124,7 @@ def predict_full(features):
         risk_prediction = RISK_MODEL.predict(sample)[0]
         risk_prediction = np.clip(risk_prediction, 0, 100)
         
-        # Extract individual risk values
+        # Extract risks
         if len(risk_prediction) >= 5:
             financial_risk = float(risk_prediction[0])
             market_risk = float(risk_prediction[1])
@@ -145,7 +138,7 @@ def predict_full(features):
             business_risk = float(risk_prediction[3]) if len(risk_prediction) > 3 else 50
             regulatory_risk = float(risk_prediction[4]) if len(risk_prediction) > 4 else 50
         
-        # Overall Risk
+        # Overall risk
         overall_risk = (
             0.25 * financial_risk +
             0.20 * market_risk +
@@ -155,52 +148,34 @@ def predict_full(features):
         )
         overall_risk = float(np.clip(overall_risk, 0, 100))
         
-        # ============================================================
-        # FIX: Confidence calculation - properly calculate from success probability
-        # ============================================================
-        # Confidence is the maximum of success or failure probability
-        # This shows how confident the model is in its prediction
-        confidence = max(success_probability, 100 - success_probability)
-        confidence = round(confidence, 2)
+        # Confidence
+        confidence = calculate_confidence(success_probability)
         
-        # System Evaluation
-        if success_probability >= 80 and overall_risk < 30:
-            evaluation = "Very Strong Potential"
-        elif success_probability >= 65 and overall_risk < 40:
-            evaluation = "Strong Potential"
-        elif success_probability >= 50 and overall_risk < 55:
-            evaluation = "Moderate Potential"
-        elif success_probability >= 35 and overall_risk < 70:
-            evaluation = "High Attention Required"
-        else:
-            evaluation = "High Risk"
+        # Evaluation
+        evaluation = get_system_evaluation(success_probability, overall_risk)
         
-        result = {
-            "success_probability": round(success_probability, 2),
-            "success_prediction": "Viable" if success_prediction == 1 else "At Risk",
-            "overall_risk_score": round(overall_risk, 2),
-            "confidence_rating": confidence,  # Now properly calculated
-            "system_evaluation": evaluation,
-            "risk_distribution": {
-                "financial": round(financial_risk, 2),
-                "market": round(market_risk, 2),
-                "technical": round(technical_risk, 2),
-                "business": round(business_risk, 2),
-                "regulatory": round(regulatory_risk, 2)
+        return {
+            "success": True,
+            "data": {
+                "success_probability": round(success_probability, 2),
+                "success_prediction": "Viable" if success_prediction == 1 else "At Risk",
+                "overall_risk_score": round(overall_risk, 2),
+                "confidence_rating": confidence,
+                "system_evaluation": evaluation,
+                "risk_distribution": {
+                    "financial": round(financial_risk, 2),
+                    "market": round(market_risk, 2),
+                    "technical": round(technical_risk, 2),
+                    "business": round(business_risk, 2),
+                    "regulatory": round(regulatory_risk, 2)
+                }
             }
         }
-        
-        print(f"✅ Confidence: {confidence}% (from success: {success_probability}%)", file=sys.stderr)
-        
-        return {"success": True, "data": result}
-        
     except Exception as e:
         print(f"❌ Prediction error: {str(e)}", file=sys.stderr)
-        print(traceback.format_exc(), file=sys.stderr)
         return {"success": False, "error": str(e)}
 
 def test_load():
-    """Test if models can be loaded"""
     return load_models()
 
 def main():
@@ -208,7 +183,7 @@ def main():
     parser.add_argument('--action', required=True)
     args = parser.parse_args()
     
-    # Read JSON data from stdin
+    # Read JSON from stdin
     data = {}
     try:
         stdin_data = sys.stdin.read()
@@ -218,7 +193,7 @@ def main():
         print(json.dumps({"success": False, "error": f"Invalid JSON input: {str(e)}"}), file=sys.stdout)
         return
     
-    # Initialize models if not already loaded
+    # Load models if not already
     if args.action != 'test_load' and not MODELS_LOADED:
         load_result = load_models()
         if not load_result['success']:

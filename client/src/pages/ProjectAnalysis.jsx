@@ -29,6 +29,8 @@ import {
   FaChartLine,
   FaUsers,
   FaUserTie,
+  FaList,
+  FaRocket,
 } from "react-icons/fa";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Toast from "../components/Toast";
@@ -42,11 +44,14 @@ const ProjectAnalysis = () => {
   const [assessment, setAssessment] = useState(null);
   const [mlResult, setMlResult] = useState(null);
   const [llmResult, setLlmResult] = useState(null);
+  const [recommendations, setRecommendations] = useState(null);
   const [toast, setToast] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] =
+    useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
   const token = localStorage.getItem("token");
 
   const CHART_COLORS = [
@@ -109,6 +114,20 @@ const ProjectAnalysis = () => {
               recommendations: data.recommendations || [],
             });
           }
+
+          // Fetch recommendations if available
+          if (data.recommendations && data.recommendations.length > 0) {
+            setRecommendations({
+              summary: "Strategic recommendations based on project analysis",
+              recommendations: data.recommendations,
+              improvement_suggestions: [],
+              llm_provider: "local",
+              refined: false,
+            });
+          } else {
+            // Try to fetch recommendations separately
+            await fetchRecommendations();
+          }
         }
       } catch (error) {
         console.log("No assessment found. Click generate to create one.");
@@ -121,6 +140,59 @@ const ProjectAnalysis = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRecommendations = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/assessment/${id}/recommendations`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (response.data.status === "success") {
+        setRecommendations(response.data.data);
+      }
+    } catch (error) {
+      console.log("No recommendations found.");
+      setRecommendations(null);
+    }
+  };
+
+  const generateRecommendations = async () => {
+    try {
+      setIsLoadingRecommendations(true);
+      setToast({
+        message: "Generating strategic recommendations...",
+        type: "info",
+      });
+
+      const response = await axios.post(
+        `${API_URL}/assessment/${id}/recommendations/generate`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (response.data.status === "success") {
+        setRecommendations(response.data.data);
+        setToast({
+          message: "Recommendations generated successfully!",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Error generating recommendations:", error);
+      setToast({
+        message:
+          error.response?.data?.message || "Failed to generate recommendations",
+        type: "error",
+      });
+    } finally {
+      setIsLoadingRecommendations(false);
     }
   };
 
@@ -181,6 +253,13 @@ const ProjectAnalysis = () => {
             swot: data.swot || null,
             recommendations: data.recommendations || [],
           });
+
+          // Auto-generate recommendations after assessment
+          if (data.ml || data.prediction) {
+            setTimeout(() => {
+              generateRecommendations();
+            }, 1000);
+          }
         }
       }
     } catch (error) {
@@ -218,6 +297,15 @@ const ProjectAnalysis = () => {
       LOW: "bg-[#101726] text-[#8ea0b7] border-[#1d2c47]",
     };
     return styles[priority] || styles["MEDIUM"];
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      high: "bg-red-500/20 text-red-400 border-red-500/30",
+      medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      low: "bg-green-500/20 text-green-400 border-green-500/30",
+    };
+    return colors[priority] || colors["medium"];
   };
 
   const getRiskChartData = () => {
@@ -368,6 +456,7 @@ const ProjectAnalysis = () => {
       )}
 
       <div className="mx-auto max-w-7xl space-y-8">
+        {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3.5">
             <button
@@ -417,31 +506,55 @@ const ProjectAnalysis = () => {
             </div>
           </div>
 
-          <button
-            onClick={generateAssessment}
-            disabled={isGenerating}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00F5A0] px-4 py-2.5 text-xs font-extrabold uppercase tracking-[0.15em] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] transition-all hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isGenerating ? (
-              <>
-                <LoadingSpinner size="sm" color="black" />
-                <span>
-                  {hasAssessment ? "Regenerating..." : "Generating..."}
-                </span>
-              </>
-            ) : (
-              <>
-                <FaBrain size={14} />
-                <span>
-                  {hasAssessment
-                    ? "Regenerate Analysis"
-                    : "Generate ML Analysis"}
-                </span>
-              </>
+          <div className="flex flex-wrap gap-2">
+            {!hasAssessment && (
+              <button
+                onClick={generateAssessment}
+                disabled={isGenerating}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00F5A0] px-4 py-2.5 text-xs font-extrabold uppercase tracking-[0.15em] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] transition-all hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGenerating ? (
+                  <>
+                    <LoadingSpinner size="sm" color="black" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <FaBrain size={14} />
+                    <span>Generate ML Analysis</span>
+                  </>
+                )}
+              </button>
             )}
-          </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={generateAssessment}
+              disabled={isGenerating}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00F5A0] px-4 py-2.5 text-xs font-extrabold uppercase tracking-[0.15em] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] transition-all hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isGenerating ? (
+                <>
+                  <LoadingSpinner size="sm" color="black" />
+                  <span>
+                    {hasAssessment ? "Regenerating..." : "Generating..."}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <FaBrain size={14} />
+                  <span>
+                    {hasAssessment
+                      ? "Regenerate Analysis"
+                      : "Generate ML Analysis"}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
+        {/* ML Results Summary */}
         {mlResult && (
           <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -498,11 +611,13 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
+        {/* Tabs */}
         <div className="flex flex-wrap gap-2 rounded-full border border-[#1d2c47] bg-[#0d1424] p-1.5">
           {[
             { key: "overview", label: "Overview", icon: FaInfoCircle },
             { key: "risks", label: "Risk Assessment", icon: FaShieldAlt },
             { key: "swot", label: "SWOT Matrix", icon: FaChartPie },
+            { key: "recommendations", label: "Recommendations", icon: FaList },
             { key: "details", label: "Project Details", icon: FaFileAlt },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -524,6 +639,7 @@ const ProjectAnalysis = () => {
           })}
         </div>
 
+        {/* Tab Content: Overview */}
         {activeTab === "overview" && (
           <div className="space-y-6">
             {hasAssessment ? (
@@ -709,6 +825,7 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
+        {/* Tab Content: Risk Assessment */}
         {activeTab === "risks" && (
           <div className="space-y-6">
             {hasAssessment && assessment.risks?.length > 0 ? (
@@ -818,6 +935,7 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
+        {/* Tab Content: SWOT Matrix */}
         {activeTab === "swot" && (
           <div className="space-y-6">
             {hasAssessment &&
@@ -891,6 +1009,252 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
+        {/* ============================================================ */}
+        {/* TAB 4: RECOMMENDATIONS (NEW - MILESTONE 3) */}
+        {/* ============================================================ */}
+        {activeTab === "recommendations" && (
+          <div className="space-y-6">
+            {isLoadingRecommendations ? (
+              <div className="flex flex-col items-center justify-center rounded-[28px] border border-[#162032] bg-[#0e1526] p-16 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                <LoadingSpinner size="lg" color="#00F5A0" />
+                <p className="mt-4 text-xs text-[#7e8ca0]">
+                  Generating strategic recommendations...
+                </p>
+              </div>
+            ) : recommendations &&
+              recommendations.recommendations?.length > 0 ? (
+              <>
+                {/* Strategic Summary */}
+                <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">
+                      <FaRocket size={14} />
+                    </div>
+                    <h3 className="text-lg font-bold text-white">
+                      Strategic Summary
+                    </h3>
+                    {recommendations.llm_provider && (
+                      <span className="rounded-full border border-[#1d2c47] bg-[#111a2c] px-2 py-0.5 text-[10px] text-[#7e8ca0]">
+                        {recommendations.llm_provider === "local"
+                          ? "Local LLM"
+                          : recommendations.llm_provider === "gemini"
+                            ? "Gemini AI"
+                            : "Fallback"}
+                      </span>
+                    )}
+                    {recommendations.refined && (
+                      <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-400">
+                        Refined
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed text-[#dfeaf7]">
+                    {recommendations.summary ||
+                      "Strategic recommendations based on project analysis."}
+                  </p>
+                </div>
+
+                {/* Priority Recommendations */}
+                {recommendations.recommendations &&
+                  recommendations.recommendations.length > 0 && (
+                    <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                      <h3 className="mb-4 text-lg font-bold text-white">
+                        Priority Recommendations
+                      </h3>
+                      <div className="grid grid-cols-1 gap-4">
+                        {recommendations.recommendations.map((rec, index) => (
+                          <div
+                            key={index}
+                            className="rounded-[20px] border border-[#1d2c47] bg-[#111a2c] p-5 transition-all hover:border-[#2a3d5a]"
+                          >
+                            <div className="mb-3 flex items-start justify-between gap-2">
+                              <div>
+                                <h4 className="text-sm font-bold text-white">
+                                  {rec.title || `Recommendation ${index + 1}`}
+                                </h4>
+                                {rec.risk_addressed && (
+                                  <p className="mt-0.5 text-xs text-[#88a0ba]">
+                                    Risk Addressed: {rec.risk_addressed}
+                                  </p>
+                                )}
+                              </div>
+                              <span
+                                className={`rounded-lg border px-2.5 py-0.5 text-[10px] font-bold uppercase ${getPriorityColor(rec.priority)}`}
+                              >
+                                {rec.priority || "MEDIUM"}
+                              </span>
+                            </div>
+
+                            {rec.reasoning && (
+                              <p className="mb-2 text-xs text-[#c6d1e3]">
+                                <span className="font-semibold text-[#7e8ca0]">
+                                  Reasoning:
+                                </span>{" "}
+                                {rec.reasoning}
+                              </p>
+                            )}
+
+                            {rec.action && (
+                              <div className="mb-2 rounded-xl border border-[#1a2333] bg-[#0d1424] p-3">
+                                <p className="text-xs font-semibold text-[#7e8ca0]">
+                                  Action:
+                                </p>
+                                <p className="text-sm text-[#dfeaf7]">
+                                  {rec.action}
+                                </p>
+                              </div>
+                            )}
+
+                            {rec.expected_impact && (
+                              <p className="text-xs text-[#88a0ba]">
+                                <span className="font-semibold text-[#7e8ca0]">
+                                  Expected Impact:
+                                </span>{" "}
+                                {rec.expected_impact}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Improvement Suggestions */}
+                {recommendations.improvement_suggestions &&
+                  recommendations.improvement_suggestions.length > 0 && (
+                    <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                      <h3 className="mb-4 text-lg font-bold text-white">
+                        Improvement Suggestions
+                      </h3>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {recommendations.improvement_suggestions.map(
+                          (imp, index) => (
+                            <div
+                              key={index}
+                              className="rounded-[20px] border border-blue-500/20 bg-blue-500/5 p-4 transition-all hover:border-blue-500/40"
+                            >
+                              <h4 className="text-sm font-bold text-white">
+                                {imp.title || `Improvement ${index + 1}`}
+                              </h4>
+                              {imp.reasoning && (
+                                <p className="mt-1 text-xs text-[#c6d1e3]">
+                                  {imp.reasoning}
+                                </p>
+                              )}
+                              {imp.action && (
+                                <p className="mt-2 text-xs text-[#88a0ba]">
+                                  <span className="font-semibold text-[#7e8ca0]">
+                                    Action:
+                                  </span>{" "}
+                                  {imp.action}
+                                </p>
+                              )}
+                              {imp.expected_impact && (
+                                <p className="mt-1 text-xs text-[#88a0ba]">
+                                  <span className="font-semibold text-[#7e8ca0]">
+                                    Impact:
+                                  </span>{" "}
+                                  {imp.expected_impact}
+                                </p>
+                              )}
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Mitigation Suggestions */}
+                {recommendations.recommendations &&
+                  recommendations.recommendations.length > 0 && (
+                    <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                      <h3 className="mb-4 text-lg font-bold text-white">
+                        Mitigation Suggestions
+                      </h3>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {recommendations.recommendations
+                          .filter((rec) => rec.risk_addressed)
+                          .slice(0, 4)
+                          .map((rec, index) => (
+                            <div
+                              key={index}
+                              className="rounded-[20px] border border-green-500/20 bg-green-500/5 p-4 transition-all hover:border-green-500/40"
+                            >
+                              <h4 className="text-sm font-bold text-white">
+                                Mitigate {rec.risk_addressed}
+                              </h4>
+                              <p className="mt-1 text-xs text-[#c6d1e3]">
+                                {rec.action}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${getPriorityColor(rec.priority)}`}
+                                >
+                                  {rec.priority || "MEDIUM"}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Validation Info */}
+                {recommendations.validation && (
+                  <div className="text-center text-xs text-[#7e8ca0]">
+                    {recommendations.validation.valid
+                      ? "✅ Recommendations validated"
+                      : `⚠️ ${recommendations.validation.issues?.join(", ") || "Validation issues"}`}
+                    {recommendations.refined && " (Refined)"}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-12 text-center shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
+                <div className="mx-auto max-w-md space-y-4">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">
+                    <FaList size={28} />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">
+                    No Recommendations Generated
+                  </h3>
+                  <p className="text-xs leading-relaxed text-[#7e8ca0]">
+                    {hasAssessment
+                      ? "Generate strategic recommendations based on your project analysis to get actionable insights for success."
+                      : "Generate an ML assessment first to enable strategic recommendations."}
+                  </p>
+                  <button
+                    onClick={
+                      hasAssessment
+                        ? generateRecommendations
+                        : generateAssessment
+                    }
+                    disabled={isLoadingRecommendations || isGenerating}
+                    className="inline-flex items-center gap-2 rounded-full bg-[#00F5A0] px-6 py-3 text-xs font-extrabold uppercase tracking-[0.15em] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isLoadingRecommendations || isGenerating ? (
+                      <>
+                        <LoadingSpinner size="sm" color="black" />
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FaBrain size={14} />
+                        <span>
+                          {hasAssessment
+                            ? "Generate Recommendations"
+                            : "Generate ML Analysis First"}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab Content: Project Details */}
         {activeTab === "details" && (
           <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
             <div className="mb-4 flex items-center gap-3">

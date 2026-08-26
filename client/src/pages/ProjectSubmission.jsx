@@ -36,8 +36,9 @@ const ProjectSubmission = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
+  const [progressMessage, setProgressMessage] = useState("");
 
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
   const token = localStorage.getItem("token");
 
   const industryOptions = [
@@ -142,6 +143,12 @@ const ProjectSubmission = () => {
     return errors;
   };
 
+  // Helper to show progress messages
+  const showProgress = (message, type = "info") => {
+    setProgressMessage(message);
+    setToast({ message, type });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -163,6 +170,7 @@ const ProjectSubmission = () => {
     }
 
     setIsSubmitting(true);
+    setProgressMessage("📝 Submitting project data...");
 
     try {
       const payload = {
@@ -176,6 +184,7 @@ const ProjectSubmission = () => {
         description: formData.description,
       };
 
+      // Step 1: Submit Project
       const response = await submitProject(payload);
       const projectId = response.data?.project_id || response.data?.id;
 
@@ -183,36 +192,49 @@ const ProjectSubmission = () => {
         throw new Error("Project created but no ID returned");
       }
 
-      setToast({
-        message: "Project submitted! Generating ML-powered analysis...",
-        type: "info",
-      });
+      showProgress("✅ Project saved. Running ML predictions...");
 
+      // Step 2: Generate ML Analysis
       try {
         const generateResponse = await axios.post(
           `${API_URL}/assessment/${projectId}/generate`,
           {},
           {
             headers: { Authorization: `Bearer ${token}` },
-          },
+          }
         );
 
         if (generateResponse.data.status === "success") {
-          setToast({
-            message:
-              "✅ Project submitted and ML analysis generated successfully!",
-            type: "success",
-          });
+          showProgress(" ML analysis complete. Generating strategic recommendations...");
+
+          // Step 3: Generate Recommendations
+          try {
+            const recResponse = await axios.post(
+              `${API_URL}/assessment/${projectId}/recommendations/generate`,
+              {},
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+
+            if (recResponse.data.status === "success") {
+              showProgress(" All analysis complete! Redirecting to results...", "success");
+            } else {
+              showProgress(" Recommendations generated but may be incomplete", "warning");
+            }
+          } catch (recError) {
+            console.error("Recommendation generation error:", recError);
+            showProgress(" Project analyzed but recommendations generation failed", "warning");
+          }
+        } else {
+          showProgress(" Project created but analysis generation failed", "warning");
         }
       } catch (genError) {
         console.error("Auto-generation error:", genError);
-        setToast({
-          message:
-            "Project submitted! You can generate analysis manually from the project page.",
-          type: "warning",
-        });
+        showProgress(" Project created. You can generate analysis manually.", "warning");
       }
 
+      // Reset form
       setFormData({
         projectName: "",
         industry: "",
@@ -235,6 +257,7 @@ const ProjectSubmission = () => {
       });
       setErrors({});
 
+      // Navigate to analysis page
       setTimeout(() => {
         navigate(`/analysis/${projectId}`);
       }, 1500);
@@ -246,6 +269,7 @@ const ProjectSubmission = () => {
       });
     } finally {
       setIsSubmitting(false);
+      setProgressMessage("");
     }
   };
 
@@ -416,7 +440,7 @@ const ProjectSubmission = () => {
                   <>
                     <LoadingSpinner size="sm" color="black" />
                     <span>
-                      Transmitting Telemetry & Running ML Assessment...
+                      {progressMessage || "Processing..."}
                     </span>
                   </>
                 ) : (

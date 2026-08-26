@@ -4,9 +4,10 @@ const { pool } = require('../config/database');
 const authenticate = require('../middleware/auth');
 const mlService = require('../services/ml.service');
 const llmService = require('../services/llm.service');
+const recommendationService = require('../services/recommendation.service');
 
 // ============================================================
-// GENERATE ASSESSMENT FOR A PROJECT
+// GENERATE ASSESSMENT
 // ============================================================
 router.post('/:projectId/generate', authenticate, async (req, res) => {
     try {
@@ -14,7 +15,6 @@ router.post('/:projectId/generate', authenticate, async (req, res) => {
         
         console.log(`🔄 Generating assessment for project: ${projectId}`);
         
-        // Get project details
         const projectResult = await pool.query(
             'SELECT * FROM projects WHERE project_id = $1',
             [projectId]
@@ -29,7 +29,6 @@ router.post('/:projectId/generate', authenticate, async (req, res) => {
         
         const project = projectResult.rows[0];
 
-        // Prepare features for ML
         const features = {
             industry: project.industry,
             business_model: project.business_model,
@@ -41,7 +40,6 @@ router.post('/:projectId/generate', authenticate, async (req, res) => {
 
         console.log('🧠 ML Features:', features);
 
-        // STEP 1: Get ML predictions
         let mlResult;
         try {
             mlResult = await mlService.predictFull(features);
@@ -54,7 +52,6 @@ router.post('/:projectId/generate', authenticate, async (req, res) => {
             });
         }
 
-        // STEP 2: Generate LLM explanation
         let llmResult = null;
         try {
             console.log('🤖 Generating LLM explanation...');
@@ -62,18 +59,14 @@ router.post('/:projectId/generate', authenticate, async (req, res) => {
             console.log('✅ LLM explanation generated');
         } catch (llmError) {
             console.error('❌ LLM generation error:', llmError);
-            // Continue with ML results only - don't fail the whole request
         }
 
-        // STEP 3: Store ML results in database
         await storeMLResults(projectId, mlResult);
 
-        // STEP 4: Store LLM results if available
         if (llmResult) {
             await storeLLMResults(projectId, llmResult);
         }
 
-        // STEP 5: Return combined results
         res.status(200).json({
             status: 'success',
             message: 'Assessment generated successfully',
@@ -92,7 +85,7 @@ router.post('/:projectId/generate', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// GET ASSESSMENT FOR A PROJECT
+// GET ASSESSMENT
 // ============================================================
 router.get('/:projectId', authenticate, async (req, res) => {
     try {
@@ -125,7 +118,6 @@ router.get('/:projectId', authenticate, async (req, res) => {
             });
         }
 
-        // Build ML result from stored data
         const mlResult = buildMLResultFromDB(prediction.rows[0], risks.rows);
 
         res.status(200).json({
@@ -149,79 +141,92 @@ router.get('/:projectId', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// REGENERATE ONLY LLM EXPLANATION (Without ML)
+// RECOMMENDATIONS ENDPOINTS (NEW - Milestone 3)
 // ============================================================
-router.post('/:projectId/regenerate-llm', authenticate, async (req, res) => {
+
+// Generate recommendations
+router.post('/:projectId/recommendations/generate', authenticate, async (req, res) => {
     try {
         const { projectId } = req.params;
         
-        // Get project and existing ML results
-        const [projectResult, predictionResult] = await Promise.all([
-            pool.query('SELECT * FROM projects WHERE project_id = $1', [projectId]),
-            pool.query(
-                'SELECT * FROM success_predictions WHERE project_id = $1 AND is_latest = true',
-                [projectId]
-            )
-        ]);
-
-        if (projectResult.rows.length === 0) {
-            return res.status(404).json({
-                status: 'error',
-                message: 'Project not found'
-            });
-        }
-
-        if (predictionResult.rows.length === 0) {
+        console.log(`📋 Generating recommendations for project: ${projectId}`);
+        
+        const result = await recommendationService.generateRecommendations(parseInt(projectId));
+        
+        if (result.status === 'insufficient_data') {
             return res.status(400).json({
                 status: 'error',
-                message: 'No ML results found. Generate assessment first.'
+                message: result.message
             });
         }
-
-        const project = projectResult.rows[0];
-        const prediction = predictionResult.rows[0];
-
-        // Reconstruct ML result
-        const mlResult = {
-            success_probability: parseFloat(prediction.success_probability) || 0,
-            overall_risk_score: parseFloat(prediction.overall_risk_score) || 0,
-            confidence_rating: parseFloat(prediction.confidence_rating) || 0,
-            system_evaluation: prediction.system_evaluation || 'Moderate Potential',
-            risk_distribution: prediction.prediction_details?.risk_distribution || {
-                financial: 0,
-                market: 0,
-                technical: 0,
-                business: 0,
-                regulatory: 0
-            }
-        };
-
-        // Generate new LLM explanation
-        let llmResult;
-        try {
-            llmResult = await llmService.generateExplanation(project, mlResult);
-        } catch (llmError) {
-            return res.status(500).json({
-                status: 'error',
-                message: 'LLM generation failed: ' + llmError.message
-            });
-        }
-
-        // Store new LLM results
-        await storeLLMResults(projectId, llmResult);
 
         res.status(200).json({
             status: 'success',
-            message: 'LLM explanation regenerated successfully',
+            data: result
+        });
+    } catch (error) {
+        console.error('❌ Recommendation generation error:', error);
+        res.status(500).json({
+            status: 'error',
+            message: error.message || 'Failed to generate recommendations'
+        });
+    }
+});
+
+// Get recommendations
+router.get('/:projectId/recommendations', authenticate, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        
+        const result = await pool.query(
+            `SELECT * FROM recommendations 
+             WHERE project_id = $1 AND is_latest = true 
+             ORDER BY 
+                CASE priority 
+                    WHEN 'CRITICAL' THEN 1
+                    WHEN 'HIGH' THEN 2
+                    WHEN 'MEDIUM' THEN 3
+                    WHEN 'LOW' THEN 4
+                END`,
+            [projectId]
+        );
+
+        const recommendations = result.rows || [];
+        const strategic = recommendations.filter(r => 
+            r.category === 'Strategic' || r.category === 'Strategic'
+        );
+        const improvements = recommendations.filter(r => 
+            r.category === 'Improvement'
+        );
+
+        // Try to get the latest recommendation summary from prediction_details
+        const summaryResult = await pool.query(
+            `SELECT prediction_details FROM success_predictions 
+             WHERE project_id = $1 AND is_latest = true`,
+            [projectId]
+        );
+
+        let summary = 'Strategic recommendations based on project analysis';
+        if (summaryResult.rows.length > 0) {
+            const details = summaryResult.rows[0].prediction_details;
+            if (details && details.recommendation_summary) {
+                summary = details.recommendation_summary;
+            }
+        }
+
+        res.status(200).json({
+            status: 'success',
             data: {
-                llm: llmResult
+                summary: summary,
+                recommendations: strategic,
+                improvement_suggestions: improvements
             }
         });
     } catch (error) {
-        console.error('❌ LLM regeneration error:', error);
+        console.error('❌ Error fetching recommendations:', error);
         res.status(500).json({
             status: 'error',
-            message: error.message || 'Failed to regenerate LLM explanation'
+            message: 'Failed to fetch recommendations'
         });
     }
 });
@@ -230,7 +235,6 @@ router.post('/:projectId/regenerate-llm', authenticate, async (req, res) => {
 // HELPER FUNCTIONS
 // ============================================================
 
-// Store ML results in database
 async function storeMLResults(projectId, mlResult) {
     const { 
         success_probability, 
@@ -293,7 +297,6 @@ async function storeMLResults(projectId, mlResult) {
         if (score >= 70) priority = 'HIGH';
         else if (score >= 50) priority = 'MEDIUM';
         
-        // Store with placeholder mitigation - will be updated by LLM later
         await pool.query(
             `INSERT INTO risk_assessments 
              (project_id, risk_category, risk_score, risk_description, 
@@ -306,7 +309,7 @@ async function storeMLResults(projectId, mlResult) {
                 score,
                 `ML-predicted ${risk.label.toLowerCase()} risk score: ${score.toFixed(2)}%`,
                 priority,
-                'Pending - LLM mitigation strategies being generated...', // Placeholder
+                `Pending - LLM mitigation strategies being generated...`,
                 risk_distribution.financial || 0,
                 risk_distribution.market || 0,
                 risk_distribution.technical || 0,
@@ -317,8 +320,6 @@ async function storeMLResults(projectId, mlResult) {
     }
 }
 
-// Store LLM results in database
-// Helper function to store LLM results
 async function storeLLMResults(projectId, llmResult) {
     try {
         console.log('💾 Storing LLM results...');
@@ -327,13 +328,11 @@ async function storeLLMResults(projectId, llmResult) {
         if (llmResult.mitigating_strategies) {
             const strategies = llmResult.mitigating_strategies;
             
-            // Get existing risk assessments for this project
             const riskResult = await pool.query(
                 'SELECT * FROM risk_assessments WHERE project_id = $1 AND is_latest = true',
                 [projectId]
             );
 
-            // Map strategies to risk categories
             const categoryMap = {
                 'financial': 'Financial',
                 'market': 'Market',
@@ -346,17 +345,14 @@ async function storeLLMResults(projectId, llmResult) {
                 const category = categoryMap[key];
                 if (!category) continue;
 
-                // Find matching risk assessment
                 const risk = riskResult.rows.find(r => 
                     r.risk_category === category || 
                     r.risk_category === category + ' Risk'
                 );
 
                 if (risk && items && items.length > 0) {
-                    // Combine strategies into a single text
                     const mitigationText = items.join('. ');
                     
-                    // Update risk_assessments with mitigation strategy
                     await pool.query(
                         `UPDATE risk_assessments 
                          SET mitigation_strategy = $1,
@@ -398,36 +394,8 @@ async function storeLLMResults(projectId, llmResult) {
             console.log('✅ SWOT stored');
         }
 
-        // Store recommendations
-        if (llmResult.recommended_actions && llmResult.recommended_actions.length > 0) {
-            await pool.query(
-                `UPDATE recommendations 
-                 SET is_latest = false 
-                 WHERE project_id = $1`,
-                [projectId]
-            );
-
-            for (const action of llmResult.recommended_actions) {
-                await pool.query(
-                    `INSERT INTO recommendations 
-                     (project_id, recommendation_text, category, risk_mitigation, priority, expected_impact, is_latest) 
-                     VALUES ($1, $2, $3, $4, $5, $6, true)`,
-                    [
-                        projectId,
-                        action.action || 'Action item',
-                        'Strategic',
-                        action.action || 'Implement action',
-                        action.priority || 'MEDIUM',
-                        action.impact || 'Improves project success'
-                    ]
-                );
-            }
-            console.log('✅ Recommendations stored');
-        }
-
         // Store executive summary
         if (llmResult.executive_summary) {
-            // Store in prediction_details or as a separate field
             await pool.query(
                 `UPDATE success_predictions 
                  SET prediction_details = prediction_details || $1
@@ -442,11 +410,9 @@ async function storeLLMResults(projectId, llmResult) {
 
     } catch (error) {
         console.error('❌ Error storing LLM results:', error);
-        // Don't throw - we want to continue even if LLM storage fails
     }
 }
 
-// Build ML result from database records
 function buildMLResultFromDB(prediction, risks) {
     if (!prediction) {
         return null;
@@ -460,7 +426,6 @@ function buildMLResultFromDB(prediction, risks) {
         regulatory: 0
     };
 
-    // Extract risk values from risk assessments
     if (risks && risks.length > 0) {
         for (const risk of risks) {
             const category = risk.risk_category?.toLowerCase();
