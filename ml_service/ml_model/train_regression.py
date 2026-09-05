@@ -1,24 +1,18 @@
 import pandas as pd
 import numpy as np
-from catboost import CatBoostClassifier
+
+from catboost import CatBoostRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    roc_auc_score,
-    brier_score_loss,
-    confusion_matrix,
-    classification_report
-)
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import joblib
+
 
 # ============================================================
 # CONFIG
 # ============================================================
 
-DATASET = "startup_risk_training_dataset_v3.csv"
-MODEL_PATH = "startup_success_catboost.cbm"
+DATASET = "startup_data_rulebased.csv"
+MODEL_PATH = "startup_risk_multireg_model.cbm"
 
 RANDOM_STATE = 42
 
@@ -37,7 +31,13 @@ CATEGORICAL_FEATURES = [
     "Target_Market_Size"
 ]
 
-TARGET = "Success_Status"
+RISK_TARGETS = [
+    "Financial_Risk",
+    "Market_Risk",
+    "Technical_Risk",
+    "Business_Risk",
+    "Regulatory_Risk"
+]
 
 
 # ============================================================
@@ -52,39 +52,30 @@ print("=" * 70)
 
 print("Shape:", df.shape)
 
-print("\nTarget distribution:")
-print(df[TARGET].value_counts())
-
-print("\nTarget percentage:")
-print(
-    df[TARGET]
-    .value_counts(normalize=True)
-    .mul(100)
-    .round(2)
-)
-
 
 # ============================================================
-# PREPARE FEATURES
+# FEATURES
 # ============================================================
 
 X = df[FEATURES].copy()
-y = df[TARGET].astype(int)
+
+Y = df[RISK_TARGETS].copy()
 
 
-# Categorical columns
+# ============================================================
+# PREPROCESSING
+# ============================================================
+
 for col in CATEGORICAL_FEATURES:
     X[col] = X[col].fillna("Unknown").astype(str)
 
-
-# Numerical columns
-numerical_features = [
+NUMERICAL_FEATURES = [
     "Budget_INR",
     "Employees_Count",
     "Founder_Experience_Years"
 ]
 
-for col in numerical_features:
+for col in NUMERICAL_FEATURES:
     X[col] = pd.to_numeric(
         X[col],
         errors="coerce"
@@ -102,14 +93,13 @@ cat_indices = [
 
 
 # ============================================================
-# TRAIN / VALIDATION / TEST
+# TRAIN / VALIDATION / TEST SPLIT
 # ============================================================
 
 X_train, X_temp, y_train, y_temp = train_test_split(
     X,
-    y,
+    Y,
     test_size=0.30,
-    stratify=y,
     random_state=RANDOM_STATE
 )
 
@@ -117,9 +107,9 @@ X_val, X_test, y_val, y_test = train_test_split(
     X_temp,
     y_temp,
     test_size=0.50,
-    stratify=y_temp,
     random_state=RANDOM_STATE
 )
+
 
 print("\n" + "=" * 70)
 print("DATA SPLIT")
@@ -131,16 +121,15 @@ print("Testing    :", len(X_test))
 
 
 # ============================================================
-# CATBOOST
+# CATBOOST MULTI-REGRESSION
 # ============================================================
 
-model = CatBoostClassifier(
+model = CatBoostRegressor(
     iterations=1500,
     learning_rate=0.03,
     depth=6,
 
-    loss_function="Logloss",
-    eval_metric="AUC",
+    loss_function="MultiRMSE",
 
     l2_leaf_reg=5,
 
@@ -158,7 +147,7 @@ model = CatBoostClassifier(
 # ============================================================
 
 print("\n" + "=" * 70)
-print("TRAINING")
+print("TRAINING RISK MODEL")
 print("=" * 70)
 
 model.fit(
@@ -174,96 +163,93 @@ model.fit(
 
 
 # ============================================================
-# TEST
+# PREDICTION
 # ============================================================
 
-y_pred = (
-    model
-    .predict(X_test)
-    .astype(int)
-    .flatten()
-)
+predictions = model.predict(X_test)
 
-y_prob = model.predict_proba(X_test)[:, 1]
+predictions = np.asarray(predictions)
+
+print("\nPrediction shape:", predictions.shape)
 
 
 # ============================================================
-# METRICS
-# ============================================================
-
-accuracy = accuracy_score(y_test, y_pred)
-
-precision = precision_score(
-    y_test,
-    y_pred,
-    zero_division=0
-)
-
-recall = recall_score(
-    y_test,
-    y_pred,
-    zero_division=0
-)
-
-f1 = f1_score(
-    y_test,
-    y_pred,
-    zero_division=0
-)
-
-auc = roc_auc_score(
-    y_test,
-    y_prob
-)
-
-brier = brier_score_loss(
-    y_test,
-    y_prob
-)
-
-
-print("\n" + "=" * 70)
-print("MODEL PERFORMANCE")
-print("=" * 70)
-
-print(f"Accuracy   : {accuracy:.4f}")
-print(f"Precision  : {precision:.4f}")
-print(f"Recall     : {recall:.4f}")
-print(f"F1 Score   : {f1:.4f}")
-print(f"ROC-AUC    : {auc:.4f}")
-print(f"Brier Score: {brier:.4f}")
-
-
-# ============================================================
-# CLASSIFICATION REPORT
+# EVALUATE EACH RISK DIMENSION
 # ============================================================
 
 print("\n" + "=" * 70)
-print("CLASSIFICATION REPORT")
+print("RISK MODEL PERFORMANCE")
 print("=" * 70)
 
-print(
-    classification_report(
+results = []
+
+for i, target in enumerate(RISK_TARGETS):
+
+    actual = y_test[target].values
+    predicted = predictions[:, i]
+
+    # Keep predictions in valid risk range
+    predicted = np.clip(
+        predicted,
+        0,
+        100
+    )
+
+    mae = mean_absolute_error(
+        actual,
+        predicted
+    )
+
+    rmse = np.sqrt(
+        mean_squared_error(
+            actual,
+            predicted
+        )
+    )
+
+    r2 = r2_score(
+        actual,
+        predicted
+    )
+
+    results.append({
+        "Risk": target,
+        "MAE": mae,
+        "RMSE": rmse,
+        "R2": r2
+    })
+
+    print(f"\n{target}")
+    print(f"MAE  : {mae:.4f}")
+    print(f"RMSE : {rmse:.4f}")
+    print(f"R²   : {r2:.4f}")
+
+
+results_df = pd.DataFrame(results)
+
+
+# ============================================================
+# OVERALL METRICS
+# ============================================================
+
+overall_mae = mean_absolute_error(
+    y_test,
+    predictions
+)
+
+overall_rmse = np.sqrt(
+    mean_squared_error(
         y_test,
-        y_pred,
-        target_names=[
-            "At Risk",
-            "Viable"
-        ],
-        zero_division=0
+        predictions
     )
 )
 
-
-# ============================================================
-# CONFUSION MATRIX
-# ============================================================
-
 print("\n" + "=" * 70)
-print("CONFUSION MATRIX")
+print("OVERALL RISK MODEL")
 print("=" * 70)
 
-print(confusion_matrix(y_test, y_pred))
+print(f"Overall MAE  : {overall_mae:.4f}")
+print(f"Overall RMSE : {overall_rmse:.4f}")
 
 
 # ============================================================
@@ -272,15 +258,14 @@ print(confusion_matrix(y_test, y_pred))
 
 importance = model.get_feature_importance()
 
-importance_df = (
-    pd.DataFrame({
-        "Feature": FEATURES,
-        "Importance": importance
-    })
-    .sort_values(
-        "Importance",
-        ascending=False
-    )
+importance_df = pd.DataFrame({
+    "Feature": FEATURES,
+    "Importance": importance
+})
+
+importance_df = importance_df.sort_values(
+    "Importance",
+    ascending=False
 )
 
 print("\n" + "=" * 70)
@@ -288,18 +273,45 @@ print("FEATURE IMPORTANCE")
 print("=" * 70)
 
 print(
-    importance_df.to_string(index=False)
+    importance_df.to_string(
+        index=False
+    )
 )
 
 
 # ============================================================
-# SAVE
+# SAVE MODEL
 # ============================================================
 
-model.save_model(MODEL_PATH)
+model.save_model(
+    MODEL_PATH
+)
 
 print("\n" + "=" * 70)
 print("MODEL SAVED")
 print("=" * 70)
 
 print(MODEL_PATH)
+
+
+# ============================================================
+# SAVE CONFIG
+# ============================================================
+
+config = {
+    "features": FEATURES,
+    "categorical_features": CATEGORICAL_FEATURES,
+    "risk_targets": RISK_TARGETS,
+    "model_type": "CatBoostRegressor",
+    "loss_function": "MultiRMSE"
+}
+
+joblib.dump(
+    config,
+    "startup_risk_model_config.pkl"
+)
+
+print(
+    "Config saved: "
+    "startup_risk_model_config.pkl"
+)

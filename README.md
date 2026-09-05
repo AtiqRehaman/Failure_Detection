@@ -50,6 +50,16 @@ npm install
 npm run dev
 ```
 
+### 5. ML Service Setup (optional Docker service)
+
+```bash
+cd ml_service
+docker compose up -d --build
+```
+
+The ML service is exposed at `http://localhost:8001`. The backend reads its
+model files from the root-level `ml_service/ml_model` directory.
+
 ## 🏗️ Project Structure
 
 ```
@@ -67,12 +77,17 @@ npm run dev
 │   ├── models/            # Database models
 │   ├── routes/            # API routes
 │   └── utils/             # Utility functions
+├── ml_service/             # Python ML service and model files
+│   ├── ml_model/            # Trained models and inference code
+│   ├── Dockerfile
+│   └── docker-compose.yml
 └── database/              # Database schemas
 ```
 
 ## 🎨 Technologies
 
 ### Frontend
+
 - React 18
 - Vite
 - Tailwind CSS
@@ -80,6 +95,7 @@ npm run dev
 - Axios
 
 ### Backend
+
 - Node.js
 - Express.js
 - PostgreSQL
@@ -87,6 +103,7 @@ npm run dev
 - Helmet (Security)
 
 ### Future Integrations
+
 - LangChain
 - OpenAI
 - AI Agents
@@ -96,6 +113,7 @@ npm run dev
 ## 🔒 Environment Variables
 
 ### Server (.env)
+
 ```
 PORT=5000
 DB_HOST=localhost
@@ -108,6 +126,7 @@ CLIENT_URL=http://localhost:5173
 ```
 
 ### Client (.env)
+
 ```
 VITE_API_URL=http://localhost:5000/api
 ```

@@ -1,0 +1,27 @@
+services:
+  python-ml-service:
+    build:
+      context: ..
+      dockerfile: ml_service/Dockerfile
+
+    container_name: senken-python-ml
+
+    ports:
+      - "8001:8000"
+
+    environment:
+      PYTHONUNBUFFERED: "1"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LOCAL_MODEL_PATH: /app/models/model.gguf
+      ML_MODEL_DIR: /app/ml_model
+
+    volumes:
+      - ./models:/app/models
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

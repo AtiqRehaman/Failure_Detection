@@ -18,10 +18,13 @@ from ml_model.recommendation_graph import build_recommendation_graph, generate_f
 
 # Import ML prediction
 try:
-    from ml_model.predict import predict_full
+    from ml_model.predict import load_models, predict_full
 except ImportError:
     print("⚠️ ML prediction module not found, using fallback")
+    load_models = None
     predict_full = None
+
+ML_MODELS_LOADED = False
 
 # ============================================================
 # FASTAPI APP
@@ -41,6 +44,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def load_ml_models():
+    """Load CatBoost models before accepting prediction requests."""
+    global ML_MODELS_LOADED
+    if load_models is not None:
+        result = load_models()
+        ML_MODELS_LOADED = result.get("success", False)
+        if not ML_MODELS_LOADED:
+            print(f"⚠️ ML models unavailable: {result.get('error', 'Unknown error')}")
 
 # ============================================================
 # PYDANTIC MODELS
@@ -78,7 +91,7 @@ async def root():
 @app.get("/health", response_model=HealthResponse)
 async def health():
     """Health check endpoint"""
-    ml_available = predict_full is not None
+    ml_available = predict_full is not None and ML_MODELS_LOADED
     
     # Check if LangGraph can be built
     langgraph_available = False
@@ -97,7 +110,7 @@ async def health():
 @app.post("/predict")
 async def predict(request: PredictionRequest):
     """Run ML prediction"""
-    if predict_full is None:
+    if predict_full is None or not ML_MODELS_LOADED:
         raise HTTPException(status_code=503, detail="ML prediction not available")
     
     try:

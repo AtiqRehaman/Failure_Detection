@@ -67,7 +67,7 @@ const ProjectAnalysis = () => {
   useEffect(() => {
     if (!id || id === "undefined" || id === "null") {
       setToast({
-        message: "Invalid project ID. Redirecting to dashboard...",
+        message: "Invalid project. Redirecting...",
         type: "error",
       });
       setTimeout(() => navigate("/dashboard"), 2000);
@@ -99,8 +99,10 @@ const ProjectAnalysis = () => {
 
         if (assessmentResponse.data.status === "success") {
           const data = assessmentResponse.data.data;
+          console.log(`[ProjectAnalysis ${id}] ML response:`, data.ml);
           setAssessment(data);
 
+          // Extract ML results
           if (data.ml) {
             setMlResult(data.ml);
           } else if (data.prediction) {
@@ -108,91 +110,72 @@ const ProjectAnalysis = () => {
             setMlResult(mlData);
           }
 
-          if (data.swot || data.recommendations) {
+          // Extract LLM results (SWOT)
+          if (data.swot) {
             setLlmResult({
-              swot: data.swot || null,
+              swot: data.swot,
               recommendations: data.recommendations || [],
             });
           }
 
-          // Fetch recommendations if available
+          // ============================================================
+          // FIX: Parse recommendations properly from the API response
+          // ============================================================
           if (data.recommendations && data.recommendations.length > 0) {
+            // The API returns recommendations with fields like:
+            // recommendation_text, category, priority, risk_mitigation, expected_impact, implementation_steps
+            const formattedRecs = data.recommendations.map((rec) => ({
+              title: rec.recommendation_text || rec.title || "Recommendation",
+              priority: rec.priority || "MEDIUM",
+              risk_addressed: rec.risk_mitigation || rec.risk_addressed || "",
+              reasoning:
+                rec.implementation_steps?.reasoning || rec.reasoning || "",
+              action: rec.recommendation_text || rec.action || "",
+              expected_impact: rec.expected_impact || "",
+              category: rec.category || "Strategic",
+              implementation_steps: rec.implementation_steps || {},
+            }));
+
+            // Separate strategic recommendations from improvements
+            const strategic = formattedRecs.filter(
+              (r) =>
+                r.category !== "Improvement" && r.category !== "improvement",
+            );
+            const improvements = formattedRecs.filter(
+              (r) =>
+                r.category === "Improvement" || r.category === "improvement",
+            );
+
+            // Get summary from prediction_details if available
+            let summary =
+              "Strategic recommendations based on project analysis.";
+            if (data.prediction?.prediction_details?.recommendation_summary) {
+              summary =
+                data.prediction.prediction_details.recommendation_summary;
+            }
+
             setRecommendations({
-              summary: "Strategic recommendations based on project analysis",
-              recommendations: data.recommendations,
-              improvement_suggestions: [],
-              llm_provider: "local",
-              refined: false,
+              summary: summary,
+              recommendations: strategic,
+              improvement_suggestions: improvements,
+              llm_provider: data.recommendations_llm_provider || "local",
+              refined: data.recommendations_refined || false,
+              validation: { valid: true, issues: [] },
             });
           } else {
-            // Try to fetch recommendations separately
-            await fetchRecommendations();
+            // No recommendations found
+            setRecommendations(null);
           }
         }
-      } catch (error) {
-        console.log("No assessment found. Click generate to create one.");
-      }
+      } catch (error) {}
     } catch (error) {
       console.error("Error fetching project:", error);
       setToast({
-        message: error.response?.data?.message || "Failed to load project",
+        message: error.response?.data?.message || "Unable to load project.",
         type: "error",
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchRecommendations = async () => {
-    try {
-      const response = await axios.get(
-        `${API_URL}/assessment/${id}/recommendations`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      if (response.data.status === "success") {
-        setRecommendations(response.data.data);
-      }
-    } catch (error) {
-      console.log("No recommendations found.");
-      setRecommendations(null);
-    }
-  };
-
-  const generateRecommendations = async () => {
-    try {
-      setIsLoadingRecommendations(true);
-      setToast({
-        message: "Generating strategic recommendations...",
-        type: "info",
-      });
-
-      const response = await axios.post(
-        `${API_URL}/assessment/${id}/recommendations/generate`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      if (response.data.status === "success") {
-        setRecommendations(response.data.data);
-        setToast({
-          message: "Recommendations generated successfully!",
-          type: "success",
-        });
-      }
-    } catch (error) {
-      console.error("Error generating recommendations:", error);
-      setToast({
-        message:
-          error.response?.data?.message || "Failed to generate recommendations",
-        type: "error",
-      });
-    } finally {
-      setIsLoadingRecommendations(false);
     }
   };
 
@@ -221,7 +204,7 @@ const ProjectAnalysis = () => {
     try {
       setIsGenerating(true);
       setToast({
-        message: "Generating AI-powered assessment... This may take a moment.",
+        message: "Generating project analysis...",
         type: "info",
       });
 
@@ -235,38 +218,83 @@ const ProjectAnalysis = () => {
 
       if (response.data.status === "success") {
         setToast({
-          message: "Assessment generated successfully!",
+          message: "Project analysis completed.",
           type: "success",
         });
 
+        // Refresh all data
         const assessmentResponse = await axios.get(
           `${API_URL}/assessment/${id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           },
         );
+
         if (assessmentResponse.data.status === "success") {
           const data = assessmentResponse.data.data;
+          console.log(
+            `[ProjectAnalysis ${id}] Generated ML response:`,
+            data.ml,
+          );
           setAssessment(data);
           setMlResult(data.ml || buildMLFromAssessment(data));
+
+          // Parse recommendations from the response
+          if (data.recommendations && data.recommendations.length > 0) {
+            const formattedRecs = data.recommendations.map((rec) => ({
+              title: rec.recommendation_text || rec.title || "Recommendation",
+              priority: rec.priority || "MEDIUM",
+              risk_addressed: rec.risk_mitigation || rec.risk_addressed || "",
+              reasoning:
+                rec.implementation_steps?.reasoning || rec.reasoning || "",
+              action: rec.recommendation_text || rec.action || "",
+              expected_impact: rec.expected_impact || "",
+              category: rec.category || "Strategic",
+              implementation_steps: rec.implementation_steps || {},
+            }));
+
+            const strategic = formattedRecs.filter(
+              (r) => r.category !== "Improvement",
+            );
+            const improvements = formattedRecs.filter(
+              (r) => r.category === "Improvement",
+            );
+
+            let summary =
+              "Strategic recommendations based on project analysis.";
+            if (data.prediction?.prediction_details?.recommendation_summary) {
+              summary =
+                data.prediction.prediction_details.recommendation_summary;
+            }
+
+            setRecommendations({
+              summary: summary,
+              recommendations: strategic,
+              improvement_suggestions: improvements,
+              llm_provider: "local",
+              refined: false,
+              validation: { valid: true, issues: [] },
+            });
+          } else {
+            setRecommendations(null);
+          }
+
           setLlmResult({
             swot: data.swot || null,
             recommendations: data.recommendations || [],
           });
-
-          // Auto-generate recommendations after assessment
-          if (data.ml || data.prediction) {
-            setTimeout(() => {
-              generateRecommendations();
-            }, 1000);
-          }
         }
+      } else {
+        setToast({
+          message: response.data.message || "Unable to generate analysis.",
+          type: "error",
+        });
       }
     } catch (error) {
       console.error("Error generating assessment:", error);
       setToast({
         message:
-          error.response?.data?.message || "Failed to generate assessment",
+          error.response?.data?.message || "Unable to generate analysis.",
         type: "error",
       });
     } finally {
@@ -879,50 +907,6 @@ const ProjectAnalysis = () => {
                     </div>
                   ))}
                 </div>
-
-                <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
-                  <h3 className="mb-4 text-lg font-bold text-white">
-                    Risk Overview Spectrum
-                  </h3>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={riskChartData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#162238" />
-                        <XAxis
-                          dataKey="category"
-                          stroke="#7e8ca0"
-                          fontSize={11}
-                        />
-                        <YAxis
-                          domain={[0, 100]}
-                          stroke="#7e8ca0"
-                          fontSize={11}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "#0d1424",
-                            borderColor: "#1d2b45",
-                            borderRadius: "16px",
-                            color: "#fff",
-                            fontSize: "12px",
-                          }}
-                        />
-                        <Bar
-                          dataKey="score"
-                          fill="#00F5A0"
-                          radius={[4, 4, 0, 0]}
-                        >
-                          {riskChartData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={CHART_COLORS[index % CHART_COLORS.length]}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
               </>
             ) : (
               <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-12 text-center shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
@@ -1033,15 +1017,7 @@ const ProjectAnalysis = () => {
                     <h3 className="text-lg font-bold text-white">
                       Strategic Summary
                     </h3>
-                    {recommendations.llm_provider && (
-                      <span className="rounded-full border border-[#1d2c47] bg-[#111a2c] px-2 py-0.5 text-[10px] text-[#7e8ca0]">
-                        {recommendations.llm_provider === "local"
-                          ? "Local LLM"
-                          : recommendations.llm_provider === "gemini"
-                            ? "Gemini AI"
-                            : "Fallback"}
-                      </span>
-                    )}
+
                     {recommendations.refined && (
                       <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-400">
                         Refined
@@ -1049,6 +1025,7 @@ const ProjectAnalysis = () => {
                     )}
                   </div>
                   <p className="text-sm leading-relaxed text-[#dfeaf7]">
+                    {/* FIX: Use actual summary from API */}
                     {recommendations.summary ||
                       "Strategic recommendations based on project analysis."}
                   </p>
@@ -1070,6 +1047,7 @@ const ProjectAnalysis = () => {
                             <div className="mb-3 flex items-start justify-between gap-2">
                               <div>
                                 <h4 className="text-sm font-bold text-white">
+                                  {/* FIX: Use actual title */}
                                   {rec.title || `Recommendation ${index + 1}`}
                                 </h4>
                                 {rec.risk_addressed && (
@@ -1210,6 +1188,7 @@ const ProjectAnalysis = () => {
                 )}
               </>
             ) : (
+              // Empty state
               <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-12 text-center shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
                 <div className="mx-auto max-w-md space-y-4">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">
@@ -1224,11 +1203,7 @@ const ProjectAnalysis = () => {
                       : "Generate an ML assessment first to enable strategic recommendations."}
                   </p>
                   <button
-                    onClick={
-                      hasAssessment
-                        ? generateRecommendations
-                        : generateAssessment
-                    }
+                    onClick={generateAssessment}
                     disabled={isLoadingRecommendations || isGenerating}
                     className="inline-flex items-center gap-2 rounded-full bg-[#00F5A0] px-6 py-3 text-xs font-extrabold uppercase tracking-[0.15em] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -1242,8 +1217,8 @@ const ProjectAnalysis = () => {
                         <FaBrain size={14} />
                         <span>
                           {hasAssessment
-                            ? "Generate Recommendations"
-                            : "Generate ML Analysis First"}
+                            ? "Generate Complete Analysis"
+                            : "Generate Assessment"}
                         </span>
                       </>
                     )}

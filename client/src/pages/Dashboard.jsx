@@ -76,7 +76,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       setToast({
-        message: "Failed to load dashboard telemetry",
+        message: "Unable to load dashboard data.",
         type: "error",
       });
     } finally {

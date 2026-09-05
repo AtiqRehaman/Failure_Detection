@@ -63,7 +63,7 @@ const Register = () => {
 
       setToast({
         message:
-          response.data.message || "Registration successful! Please login.",
+          response.data.message || "Registration successful. Please sign in.",
         type: "success",
       });
 
@@ -73,8 +73,7 @@ const Register = () => {
     } catch (error) {
       setToast({
         message:
-          error.response?.data?.message ||
-          "Registration failed. Please try again.",
+          error.response?.data?.message || "Unable to create your account.",
         type: "error",
       });
     } finally {

@@ -23,7 +23,6 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    console.log(`📤 ${config.method.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {

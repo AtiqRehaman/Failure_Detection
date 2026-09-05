@@ -143,12 +143,6 @@ const ProjectSubmission = () => {
     return errors;
   };
 
-  // Helper to show progress messages
-  const showProgress = (message, type = "info") => {
-    setProgressMessage(message);
-    setToast({ message, type });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -163,14 +157,14 @@ const ProjectSubmission = () => {
 
     if (Object.keys(validationErrors).length > 0) {
       setToast({
-        message: "Please fix the errors before submitting",
+        message: "Please fix the highlighted errors.",
         type: "error",
       });
       return;
     }
 
     setIsSubmitting(true);
-    setProgressMessage("📝 Submitting project data...");
+    setProgressMessage("Submitting project...");
 
     try {
       const payload = {
@@ -192,46 +186,39 @@ const ProjectSubmission = () => {
         throw new Error("Project created but no ID returned");
       }
 
-      showProgress("✅ Project saved. Running ML predictions...");
+      setProgressMessage("Generating project analysis...");
 
-      // Step 2: Generate ML Analysis
+      // Step 2: Generate COMPLETE Assessment (ML + SWOT + Recommendations - ALL IN ONE)
       try {
         const generateResponse = await axios.post(
           `${API_URL}/assessment/${projectId}/generate`,
           {},
           {
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
         );
 
         if (generateResponse.data.status === "success") {
-          showProgress(" ML analysis complete. Generating strategic recommendations...");
-
-          // Step 3: Generate Recommendations
-          try {
-            const recResponse = await axios.post(
-              `${API_URL}/assessment/${projectId}/recommendations/generate`,
-              {},
-              {
-                headers: { Authorization: `Bearer ${token}` },
-              }
-            );
-
-            if (recResponse.data.status === "success") {
-              showProgress(" All analysis complete! Redirecting to results...", "success");
-            } else {
-              showProgress(" Recommendations generated but may be incomplete", "warning");
-            }
-          } catch (recError) {
-            console.error("Recommendation generation error:", recError);
-            showProgress(" Project analyzed but recommendations generation failed", "warning");
-          }
+          setProgressMessage("Analysis ready. Redirecting...", "success");
+          setToast({
+            message: "Project submitted and analyzed.",
+            type: "success",
+          });
         } else {
-          showProgress(" Project created but analysis generation failed", "warning");
+          setProgressMessage(
+            "Analysis incomplete. You can retry later.",
+            "warning",
+          );
         }
       } catch (genError) {
-        console.error("Auto-generation error:", genError);
-        showProgress(" Project created. You can generate analysis manually.", "warning");
+        setProgressMessage(
+          "Project created. Analysis can be retried later.",
+          "warning",
+        );
+        setToast({
+          message: "Project created, but analysis failed.",
+          type: "warning",
+        });
       }
 
       // Reset form
@@ -262,9 +249,8 @@ const ProjectSubmission = () => {
         navigate(`/analysis/${projectId}`);
       }, 1500);
     } catch (error) {
-      console.error("❌ Submission error:", error);
       setToast({
-        message: error.message || "Failed to submit project. Please try again.",
+        message: error.message || "Unable to submit project.",
         type: "error",
       });
     } finally {
@@ -439,9 +425,7 @@ const ProjectSubmission = () => {
                 {isSubmitting ? (
                   <>
                     <LoadingSpinner size="sm" color="black" />
-                    <span>
-                      {progressMessage || "Processing..."}
-                    </span>
+                    <span>{progressMessage || "Processing..."}</span>
                   </>
                 ) : (
                   <>

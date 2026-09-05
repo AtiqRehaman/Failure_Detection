@@ -50,7 +50,7 @@ const Login = () => {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
       setToast({
-        message: "Login successful! Redirecting...",
+        message: "Login successful. Redirecting...",
         type: "success",
       });
 
@@ -59,8 +59,7 @@ const Login = () => {
       }, 1000);
     } catch (error) {
       setToast({
-        message:
-          error.response?.data?.message || "Login failed. Please try again.",
+        message: error.response?.data?.message || "Unable to sign in.",
         type: "error",
       });
     } finally {

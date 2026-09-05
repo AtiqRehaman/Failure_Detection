@@ -10,18 +10,18 @@ class LLMService {
         this.ai = new GoogleGenAI({
           apiKey: process.env.GEMINI_API_KEY,
         });
-        console.log("✅ LLM Service initialized with Gemini");
+        console.log("LLM provider: Gemini.");
       } catch (error) {
-        console.warn("⚠️ Gemini initialization failed, using fallback mode");
+        console.warn("Gemini unavailable; fallback mode enabled.");
         this.provider = "fallback";
         this.ai = null;
       }
     } else if (this.provider === "local") {
-      console.log(
-        `✅ LLM Service initialized with Local LLM at: ${this.localApiUrl}`,
-      );
+      console.log(`LLM provider: local (${this.localApiUrl}).`);
     } else {
-      console.log(`⚠️ Unknown provider: ${this.provider}, using fallback mode`);
+      console.warn(
+        `Unknown LLM provider: ${this.provider}; fallback mode enabled.`,
+      );
       this.provider = "fallback";
       this.ai = null;
     }
@@ -38,7 +38,6 @@ class LLMService {
       }
 
       // Fallback to rule-based
-      console.log("🔄 Using fallback explanation (AI unavailable)");
       return this.generateFallbackExplanation(project, mlResults);
     } catch (error) {
       console.error("❌ LLM generation error:", error);
@@ -72,7 +71,7 @@ class LLMService {
       }
 
       const response = await this.ai.models.generateContent({
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-3.5-flash",
         contents: [
           {
             role: "user",
@@ -198,6 +197,11 @@ Based on these ML results, provide:
 3. EXECUTIVE SUMMARY:
    A concise summary of the project's viability and key recommendations (2-3 paragraphs).
 
+4. STRATEGIC RECOMMENDATIONS:
+  Provide 3-5 actionable recommendations focused on the highest-priority risks.
+  Each recommendation must include a title, priority, risk_addressed, reasoning,
+  action, and expected_impact. Also provide 2-4 improvement suggestions.
+
 Format the response as JSON:
 {
     "mitigating_strategies": {
@@ -214,7 +218,25 @@ Format the response as JSON:
         "threats": ["threat1", "threat2", "threat3"],
         "summary": "Overall SWOT summary"
     },
-    "executive_summary": "Brief executive summary"
+    "executive_summary": "Brief executive summary",
+    "recommendations": [
+      {
+        "title": "Recommendation title",
+        "priority": "high/medium/low",
+        "risk_addressed": "Risk category this addresses",
+        "reasoning": "Why this recommendation",
+        "action": "Specific action steps",
+        "expected_impact": "Expected outcome"
+      }
+    ],
+    "improvement_suggestions": [
+      {
+        "title": "Improvement title",
+        "reasoning": "Why this improvement",
+        "action": "Action steps",
+        "expected_impact": "Expected outcome"
+      }
+    ]
 }
 
 Return ONLY valid JSON.`;
@@ -241,7 +263,6 @@ Return ONLY valid JSON.`;
       }
 
       // Fallback to static recommendations
-      console.log("🔄 Using fallback recommendations");
       return this.generateFallbackRecommendations();
     } catch (error) {
       console.error("❌ Recommendation generation error:", error);
@@ -439,6 +460,9 @@ Return ONLY valid JSON.`;
         .join(
           " and ",
         )}. The project shows ${successDescription} market potential with ${riskDescription} risk. Recommended focus areas include strengthening the business model, securing adequate funding, and building strategic partnerships to mitigate identified risks.`,
+      recommendations: this.generateFallbackRecommendations().recommendations,
+      improvement_suggestions:
+        this.generateFallbackRecommendations().improvement_suggestions,
     };
   }
 }

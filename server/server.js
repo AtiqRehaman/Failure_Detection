@@ -3,15 +3,16 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const dotenv = require("dotenv");
+
+// Load environment variables before importing services that read them.
+dotenv.config();
+
 const { testConnection } = require("./config/database");
 const projectRoutes = require("./routes/project.routes");
 const authRoutes = require("./routes/auth.routes");
 const assessmentRoutes = require("./routes/assessment.routes");
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
 const mlService = require("./services/ml.service");
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,17 +21,25 @@ const PORT = process.env.PORT || 5000;
 // VALIDATE REQUIRED ENVIRONMENT VARIABLES
 // ============================================================
 
-const requiredEnvVars = ['JWT_SECRET'];
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+const requiredEnvVars = ["JWT_SECRET"];
+const missingEnvVars = requiredEnvVars.filter(
+  (varName) => !process.env[varName],
+);
 
 if (missingEnvVars.length > 0) {
-    console.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
-    if (process.env.NODE_ENV === 'production') {
-        console.error('Please set these variables in your Render environment settings.');
-        process.exit(1);
-    } else {
-        console.warn('⚠️ Running in development mode without JWT_SECRET. Authentication will fail.');
-    }
+  console.error(
+    `❌ Missing required environment variables: ${missingEnvVars.join(", ")}`,
+  );
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "Please set these variables in your Render environment settings.",
+    );
+    process.exit(1);
+  } else {
+    console.warn(
+      "⚠️ Running in development mode without JWT_SECRET. Authentication will fail.",
+    );
+  }
 }
 
 // ============================================================
@@ -45,7 +54,7 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
-  })
+  }),
 );
 
 // Logging middleware
@@ -94,23 +103,23 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     // Step 1: Test database connection
-    console.log("📊 Connecting to database...");
     const dbConnected = await testConnection();
 
     if (!dbConnected) {
-      console.warn("⚠️ Server starting without database connection");
+      console.warn(
+        "Database unavailable; starting without database connection.",
+      );
     } else {
-      console.log("✅ Database connected");
+      console.log("Database connected.");
     }
 
     // Step 2: Initialize ML service (non-blocking)
     try {
-      console.log("🧠 Initializing ML service...");
       await mlService.initialize();
       if (mlService.isLoaded()) {
-        console.log("✅ ML service is ready");
+        console.log("ML service ready.");
       } else {
-        console.warn("⚠️ ML service failed to initialize");
+        console.warn("ML service unavailable; fallback mode enabled.");
       }
     } catch (mlError) {
       console.error("❌ ML service initialization error:", mlError.message);
@@ -118,17 +127,7 @@ const startServer = async () => {
 
     // Step 3: Start the server
     app.listen(PORT, () => {
-      console.log("=".repeat(60));
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📊 API endpoint: http://localhost:${PORT}/api/projects`);
-      console.log(`🔐 Auth endpoint: http://localhost:${PORT}/api/auth`);
-      console.log(`📈 Assessment endpoint: http://localhost:${PORT}/api/assessment`);
-      console.log(`💚 Health check: http://localhost:${PORT}/health`);
-      console.log("-".repeat(60));
-      console.log(`🧠 ML Status: ${mlService.isLoaded() ? '✅ Loaded' : '❌ Not Loaded'}`);
-      console.log(`🔑 JWT Secret: ${process.env.JWT_SECRET ? '✅ Configured' : '❌ Not Set'}`);
-      console.log(`📦 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log("=".repeat(60));
+      console.log(`Server listening on port ${PORT}.`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
@@ -154,8 +153,8 @@ process.on("SIGINT", () => {
 // UNHANDLED REJECTION HANDLER
 // ============================================================
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
 });
 
 // ============================================================

@@ -28,7 +28,6 @@ const MarketIntelligencePanel = ({ selectedProject }) => {
       );
       setIntelData(data);
     } catch (err) {
-      console.error("Failed to load real-time market data", err);
     } finally {
       setLoading(false);
     }
