@@ -20,9 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy ML model code
 COPY ml_service/ml_model/ ./ml_model/
 
-# Copy Python API from the Node backend project
-COPY server/services/ ./services/
-
 # Create model directory
 RUN mkdir -p /app/models
 
@@ -30,4 +27,4 @@ RUN mkdir -p /app/models
 EXPOSE 8000
 
 # Start FastAPI with Uvicorn
-CMD ["python", "-m", "uvicorn", "services.python_api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "ml_model.python_api:app", "--host", "0.0.0.0", "--port", "8000"]
