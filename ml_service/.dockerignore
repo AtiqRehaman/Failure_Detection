@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+catboost_info/
+*.ipynb
+*.ipynb.bak
+models/
+Dockerfile
+docker-compose.yml

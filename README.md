@@ -60,6 +60,39 @@ docker compose up -d --build
 The ML service is exposed at `http://localhost:8001`. The backend reads its
 model files from the root-level `ml_service/ml_model` directory.
 
+### Render deployment
+
+Deploy the backend and ML service as separate Render web services. For the ML
+service, set the Render root directory to `ml_service` and the Dockerfile path
+to `Dockerfile`. Render supplies `PORT` automatically; the Dockerfile uses it
+while local Compose continues to expose the service at `http://localhost:8001`.
+
+For the Node backend, set the root directory to `server` and use:
+
+```text
+Build Command: npm ci
+Start Command: npm start
+```
+
+Set these backend environment variables in Render:
+
+```text
+NODE_ENV=production
+JWT_SECRET=<long-random-secret>
+DB_HOST=<render-postgres-host>
+DB_PORT=5432
+DB_USER=<render-postgres-user>
+DB_PASSWORD=<render-postgres-password>
+DB_NAME=<render-postgres-database>
+CLIENT_URL=<deployed-frontend-url>
+PYTHON_API_URL=<internal-url-of-the-ml-service>
+```
+
+For a separate Render frontend static site, use `client` as the root directory,
+`npm run build` as the build command, and `dist` as the publish directory. Set
+`VITE_API_URL` to the public backend URL followed by `/api`. When the frontend
+is served by the same host as the backend, the client defaults to `/api`.
+
 ## 🏗️ Project Structure
 
 ```
