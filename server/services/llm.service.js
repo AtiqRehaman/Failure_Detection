@@ -64,12 +64,16 @@ class LLMService {
 
   // GENERATE WITH GEMINI
 
-  async generateWithGemini(prompt) {
-    try {
-      if (!this.ai) {
-        throw new Error("Gemini not initialized");
-      }
+async generateWithGemini(prompt) {
+  if (!this.ai) {
+    throw new Error("Gemini not initialized");
+  }
 
+  const maxRetries = 3;
+  const baseDelay = 1000;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
       const response = await this.ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: [
@@ -82,27 +86,66 @@ class LLMService {
           temperature: 0.3,
           topK: 20,
           topP: 0.8,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 4096,
           responseMimeType: "application/json",
         },
       });
 
       const text =
-        response.text || response.candidates?.[0]?.content?.parts?.[0]?.text;
+        response.text ||
+        response.candidates?.[0]?.content?.parts?.[0]?.text;
+
       if (!text) {
         throw new Error("No response from Gemini");
       }
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+      // Gemini was requested to return JSON, so parse it directly.
+      try {
+        return JSON.parse(text);
+      } catch (parseError) {
+        console.warn(
+          `⚠️ Gemini returned invalid JSON (attempt ${
+            attempt + 1
+          }/${maxRetries + 1})`,
+        );
+
+        throw new Error(`Invalid Gemini JSON: ${parseError.message}`);
       }
-      return JSON.parse(text);
     } catch (error) {
-      console.error("❌ Gemini generation error:", error.message);
-      return null;
+      const message = error?.message || String(error);
+
+      // Detect transient Gemini errors
+      const isRetryable =
+        message.includes("503") ||
+        message.includes("UNAVAILABLE") ||
+        message.includes("429") ||
+        message.includes("500") ||
+        message.includes("502") ||
+        message.includes("504") ||
+        message.includes("high demand") ||
+        message.includes("overloaded");
+
+      // Last attempt → let caller trigger fallback
+      if (attempt === maxRetries || !isRetryable) {
+        console.error("❌ Gemini generation error:", message);
+        return null;
+      }
+
+      // Exponential backoff + small jitter
+      const delay =
+        baseDelay * Math.pow(2, attempt) +
+        Math.floor(Math.random() * 500);
+
+      console.warn(
+        `⚠️ Gemini temporarily unavailable. Retrying in ${delay}ms...`,
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
+
+  return null;
+}
 
   // GENERATE WITH LOCAL LLM
 
@@ -151,10 +194,114 @@ class LLMService {
   // BUILD ML EXPLANATION PROMPT
 
   buildMLExplanationPrompt(project, mlResults) {
+  const isGemini = this.provider === "gemini";
+
+  if (isGemini) {
     return `
+You are a professional business analyst.
+
+Use the following ML results as FACTS. Do not change, recalculate, or contradict them.
+
+Return ONLY valid JSON. Keep ALL text concise.
+
+PROJECT:
+Name: ${project.project_name}
+Industry: ${project.industry}
+Business Model: ${project.business_model}
+Market Size: ${project.target_market_size}
+Budget: ₹${project.budget || 0}
+Employees: ${project.employees_count || 1}
+Founder Experience: ${project.founder_experience_years || 0} years
+Description: ${project.description || "N/A"}
+
+ML RESULTS:
+Success Probability: ${mlResults.success_probability}%
+Success Prediction: ${mlResults.success_prediction}
+Overall Risk: ${mlResults.overall_risk_score}%
+Confidence: ${mlResults.confidence_rating}%
+Evaluation: ${mlResults.system_evaluation}
+Financial Risk: ${mlResults.risk_distribution.financial}%
+Market Risk: ${mlResults.risk_distribution.market}%
+Technical Risk: ${mlResults.risk_distribution.technical}%
+Business Risk: ${mlResults.risk_distribution.business}%
+Regulatory Risk: ${mlResults.risk_distribution.regulatory}%
+
+Generate:
+
+1. MITIGATING STRATEGIES
+Provide exactly 2 short strategies for each risk category.
+Each strategy must be actionable and under 15 words.
+
+2. SWOT
+Provide exactly 3 concise items for each category.
+Each item must be under 12 words.
+Summary must be under 35 words.
+
+3. EXECUTIVE SUMMARY
+Provide one concise paragraph under 80 words.
+
+4. RECOMMENDATIONS
+Provide exactly 3 recommendations focused on the highest risks.
+Each field must be concise:
+- title
+- priority
+- risk_addressed
+- reasoning
+- action
+- expected_impact
+
+Each field must be under 25 words.
+
+5. IMPROVEMENT SUGGESTIONS
+Provide exactly 2 suggestions.
+Keep every field under 25 words.
+
+JSON FORMAT:
+{
+  "mitigating_strategies": {
+    "financial": ["strategy1", "strategy2"],
+    "market": ["strategy1", "strategy2"],
+    "technical": ["strategy1", "strategy2"],
+    "business": ["strategy1", "strategy2"],
+    "regulatory": ["strategy1", "strategy2"]
+  },
+  "swot": {
+    "strengths": ["strength1", "strength2", "strength3"],
+    "weaknesses": ["weakness1", "weakness2", "weakness3"],
+    "opportunities": ["opportunity1", "opportunity2", "opportunity3"],
+    "threats": ["threat1", "threat2", "threat3"],
+    "summary": "Brief SWOT summary"
+  },
+  "executive_summary": "Brief executive summary",
+  "recommendations": [
+    {
+      "title": "Recommendation",
+      "priority": "high",
+      "risk_addressed": "Risk category",
+      "reasoning": "Brief reason",
+      "action": "Specific action",
+      "expected_impact": "Expected impact"
+    }
+  ],
+  "improvement_suggestions": [
+    {
+      "title": "Improvement",
+      "reasoning": "Brief reason",
+      "action": "Specific action",
+      "expected_impact": "Expected impact"
+    }
+  ]
+}
+
+Return ONLY the JSON object. Do not use markdown or code fences.
+`;
+  }
+
+  // Detailed prompt for local LLM
+  return `
 You are a professional business analyst. Based on the following ML analysis results, provide a comprehensive qualitative explanation.
 
-⚠️ CRITICAL INSTRUCTIONS:
+CRITICAL INSTRUCTIONS:
 1. Use the ML results as FACTS - DO NOT change or override them
 2. Provide professional, human-readable explanations
 3. Return ONLY valid JSON
@@ -185,62 +332,65 @@ ML ANALYSIS RESULTS (DO NOT CHANGE THESE):
 Based on these ML results, provide:
 
 1. MITIGATING STRATEGIES:
-   For each risk area (Financial, Market, Technical, Business, Regulatory), provide 2-3 specific, actionable strategies based on the risk scores.
+For each risk area (Financial, Market, Technical, Business, Regulatory), provide 2-3 specific, actionable strategies based on the risk scores.
 
 2. SWOT MATRIX:
-   - Strengths: 4-5 internal positive factors based on the project and ML results
-   - Weaknesses: 4-5 internal negative factors based on the project and ML results
-   - Opportunities: 4-5 external positive factors based on the project and ML results
-   - Threats: 4-5 external negative factors based on the project and ML results
-   - Summary: A brief overall assessment
+- Strengths: 4-5 internal positive factors
+- Weaknesses: 4-5 internal negative factors
+- Opportunities: 4-5 external positive factors
+- Threats: 4-5 external negative factors
+- Summary: Overall assessment
 
 3. EXECUTIVE SUMMARY:
-   A concise summary of the project's viability and key recommendations (2-3 paragraphs).
+Provide a concise summary of the project's viability and key recommendations.
 
 4. STRATEGIC RECOMMENDATIONS:
-  Provide 3-5 actionable recommendations focused on the highest-priority risks.
-  Each recommendation must include a title, priority, risk_addressed, reasoning,
-  action, and expected_impact. Also provide 2-4 improvement suggestions.
+Provide 3-5 actionable recommendations focused on the highest-priority risks.
+Each recommendation must include:
+title, priority, risk_addressed, reasoning, action, expected_impact.
+
+Also provide 2-4 improvement suggestions.
 
 Format the response as JSON:
 {
-    "mitigating_strategies": {
-        "financial": ["strategy1", "strategy2", "strategy3"],
-        "market": ["strategy1", "strategy2", "strategy3"],
-        "technical": ["strategy1", "strategy2", "strategy3"],
-        "business": ["strategy1", "strategy2", "strategy3"],
-        "regulatory": ["strategy1", "strategy2", "strategy3"]
-    },
-    "swot": {
-        "strengths": ["strength1", "strength2", "strength3"],
-        "weaknesses": ["weakness1", "weakness2", "weakness3"],
-        "opportunities": ["opportunity1", "opportunity2", "opportunity3"],
-        "threats": ["threat1", "threat2", "threat3"],
-        "summary": "Overall SWOT summary"
-    },
-    "executive_summary": "Brief executive summary",
-    "recommendations": [
-      {
-        "title": "Recommendation title",
-        "priority": "high/medium/low",
-        "risk_addressed": "Risk category this addresses",
-        "reasoning": "Why this recommendation",
-        "action": "Specific action steps",
-        "expected_impact": "Expected outcome"
-      }
-    ],
-    "improvement_suggestions": [
-      {
-        "title": "Improvement title",
-        "reasoning": "Why this improvement",
-        "action": "Action steps",
-        "expected_impact": "Expected outcome"
-      }
-    ]
+  "mitigating_strategies": {
+    "financial": ["strategy1", "strategy2", "strategy3"],
+    "market": ["strategy1", "strategy2", "strategy3"],
+    "technical": ["strategy1", "strategy2", "strategy3"],
+    "business": ["strategy1", "strategy2", "strategy3"],
+    "regulatory": ["strategy1", "strategy2", "strategy3"]
+  },
+  "swot": {
+    "strengths": ["strength1", "strength2", "strength3"],
+    "weaknesses": ["weakness1", "weakness2", "weakness3"],
+    "opportunities": ["opportunity1", "opportunity2", "opportunity3"],
+    "threats": ["threat1", "threat2", "threat3"],
+    "summary": "Overall SWOT summary"
+  },
+  "executive_summary": "Brief executive summary",
+  "recommendations": [
+    {
+      "title": "Recommendation title",
+      "priority": "high/medium/low",
+      "risk_addressed": "Risk category",
+      "reasoning": "Why this recommendation",
+      "action": "Specific action steps",
+      "expected_impact": "Expected outcome"
+    }
+  ],
+  "improvement_suggestions": [
+    {
+      "title": "Improvement title",
+      "reasoning": "Why this improvement",
+      "action": "Action steps",
+      "expected_impact": "Expected outcome"
+    }
+  ]
 }
 
-Return ONLY valid JSON.`;
-  }
+Return ONLY valid JSON.
+`;
+}
 
   // RECOMMENDATION GENERATION (Milestone 3)
 

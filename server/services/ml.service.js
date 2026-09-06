@@ -3,7 +3,7 @@ class MLService {
   constructor() {
     this.modelsLoaded = false;
     this.pythonApiUrl = (
-      process.env.PYTHON_API_URL || "http://localhost:8001"
+      process.env.PYTHON_API_URL || "http://localhost:10000"
     ).replace(/\/$/, "");
     this.initialized = false;
     this.loadingPromise = null;

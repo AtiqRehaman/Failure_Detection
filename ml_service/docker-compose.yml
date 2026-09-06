@@ -7,7 +7,7 @@ services:
     container_name: senken-python-ml
 
     ports:
-      - "8001:8000"
+      - "10000:10000"
 
     environment:
       PYTHONUNBUFFERED: "1"
