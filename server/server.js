@@ -117,12 +117,18 @@ const startServer = async () => {
     try {
       await mlService.initialize();
       if (mlService.isLoaded()) {
-        console.log("ML service ready.");
+        console.log(
+          `✅ Docker ML service available at ${mlService.pythonApiUrl}.`,
+        );
       } else {
-        console.warn("ML service unavailable; fallback mode enabled.");
+        console.warn(
+          "⚠️ Docker ML service NOT AVAILABLE; fallback mode enabled.",
+        );
       }
     } catch (mlError) {
-      console.error("❌ ML service initialization error:", mlError.message);
+      console.error(
+        `❌ Docker ML service NOT AVAILABLE; fallback mode enabled. ${mlError.message}`,
+      );
     }
 
     // Step 3: Start the server

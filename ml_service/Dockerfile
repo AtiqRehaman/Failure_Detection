@@ -18,6 +18,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy ML application and model files
+COPY python_api.py ./python_api.py
 COPY ml_model/ ./ml_model/
 
 # Create model directory if required by the application
@@ -27,4 +28,4 @@ RUN mkdir -p /app/models
 EXPOSE 8000
 
 # Start FastAPI
-CMD ["python", "-m", "uvicorn", "ml_model.python_api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "python_api:app", "--host", "0.0.0.0", "--port", "8000"]

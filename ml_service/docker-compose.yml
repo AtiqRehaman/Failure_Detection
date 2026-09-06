@@ -1,8 +1,8 @@
 services:
   python-ml-service:
     build:
-      context: ..
-      dockerfile: ml_service/Dockerfile
+      context: .
+      dockerfile: Dockerfile
 
     container_name: senken-python-ml
 
