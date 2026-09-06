@@ -29,7 +29,7 @@ COPY ml_model/ ./ml_model/
 RUN mkdir -p /app/models
 
 # Render provides PORT at runtime; keep 8000 as the local/default port.
-EXPOSE 8000
+EXPOSE 10000
 
 # Start FastAPI
-CMD ["sh", "-c", "exec python -m uvicorn python_api:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "exec python -m uvicorn python_api:app --host 0.0.0.0 --port ${PORT:-10000}"]
