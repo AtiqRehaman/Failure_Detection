@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   BarChart,
@@ -31,6 +31,8 @@ import {
   FaUserTie,
   FaList,
   FaRocket,
+  FaDownload,
+  FaSpinner,
 } from "react-icons/fa";
 import LoadingSpinner from "../components/LoadingSpinner";
 import Toast from "../components/Toast";
@@ -49,6 +51,7 @@ const ProjectAnalysis = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingRecommendations, setIsLoadingRecommendations] =
     useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -102,7 +105,6 @@ const ProjectAnalysis = () => {
           console.log(`[ProjectAnalysis ${id}] ML response:`, data.ml);
           setAssessment(data);
 
-          // Extract ML results
           if (data.ml) {
             setMlResult(data.ml);
           } else if (data.prediction) {
@@ -110,7 +112,6 @@ const ProjectAnalysis = () => {
             setMlResult(mlData);
           }
 
-          // Extract LLM results (SWOT)
           if (data.swot) {
             setLlmResult({
               swot: data.swot,
@@ -118,12 +119,7 @@ const ProjectAnalysis = () => {
             });
           }
 
-          // ============================================================
-          // FIX: Parse recommendations properly from the API response
-          // ============================================================
           if (data.recommendations && data.recommendations.length > 0) {
-            // The API returns recommendations with fields like:
-            // recommendation_text, category, priority, risk_mitigation, expected_impact, implementation_steps
             const formattedRecs = data.recommendations.map((rec) => ({
               title: rec.recommendation_text || rec.title || "Recommendation",
               priority: rec.priority || "MEDIUM",
@@ -136,7 +132,6 @@ const ProjectAnalysis = () => {
               implementation_steps: rec.implementation_steps || {},
             }));
 
-            // Separate strategic recommendations from improvements
             const strategic = formattedRecs.filter(
               (r) =>
                 r.category !== "Improvement" && r.category !== "improvement",
@@ -146,7 +141,6 @@ const ProjectAnalysis = () => {
                 r.category === "Improvement" || r.category === "improvement",
             );
 
-            // Get summary from prediction_details if available
             let summary =
               "Strategic recommendations based on project analysis.";
             if (data.prediction?.prediction_details?.recommendation_summary) {
@@ -163,7 +157,6 @@ const ProjectAnalysis = () => {
               validation: { valid: true, issues: [] },
             });
           } else {
-            // No recommendations found
             setRecommendations(null);
           }
         }
@@ -222,7 +215,6 @@ const ProjectAnalysis = () => {
           type: "success",
         });
 
-        // Refresh all data
         const assessmentResponse = await axios.get(
           `${API_URL}/assessment/${id}`,
           {
@@ -239,7 +231,6 @@ const ProjectAnalysis = () => {
           setAssessment(data);
           setMlResult(data.ml || buildMLFromAssessment(data));
 
-          // Parse recommendations from the response
           if (data.recommendations && data.recommendations.length > 0) {
             const formattedRecs = data.recommendations.map((rec) => ({
               title: rec.recommendation_text || rec.title || "Recommendation",
@@ -302,6 +293,525 @@ const ProjectAnalysis = () => {
     }
   };
 
+  // ============================================================
+  // DOWNLOAD PDF FUNCTIONALITY
+  // ============================================================
+
+  const handleDownloadPDF = async () => {
+    try {
+      setIsDownloading(true);
+      setToast({
+        message: "Preparing PDF document...",
+        type: "info",
+      });
+
+      // Dynamically import jsPDF and html2canvas
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const swotData = getSWOTData();
+
+      // Initialize PDF (A4 portrait)
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
+      const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
+      const margin = 10; // 10mm margin
+      const contentWidth = pageWidth - margin * 2; // 190mm
+
+      let currentY = margin;
+      const pageNumber = { value: 1 };
+
+      // ============================================================
+      // HELPER: Add a footer with page number
+      // ============================================================
+      const addFooter = () => {
+        const pageCount = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          pdf.setPage(i);
+          pdf.setFontSize(8);
+          pdf.setTextColor(150, 150, 150);
+          pdf.text(
+            `AI-Powered Product Intelligence System | Confidential Report | Page ${i} of ${pageCount}`,
+            pageWidth / 2,
+            pageHeight - 5,
+            { align: "center" },
+          );
+        }
+      };
+
+      // ============================================================
+      // HELPER: Create hidden container for rendering HTML sections
+      // ============================================================
+      const createHiddenContainer = (htmlContent, width = 800) => {
+        const container = document.createElement("div");
+        container.style.position = "fixed";
+        container.style.left = "-9999px";
+        container.style.top = "0";
+        container.style.width = `${width}px`;
+        container.style.backgroundColor = "#ffffff";
+        container.style.padding = "30px";
+        container.style.fontFamily = "Arial, Helvetica, sans-serif";
+        container.style.color = "#000000";
+        container.style.boxSizing = "border-box";
+        container.innerHTML = htmlContent;
+        document.body.appendChild(container);
+        return container;
+      };
+
+      // ============================================================
+      // HELPER: Render HTML section and add to PDF
+      // ============================================================
+      const addSectionToPDF = async (htmlContent, options = {}) => {
+        const { addPageBreak = false } = options;
+
+        const container = createHiddenContainer(htmlContent, 800);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const canvas = await html2canvas(container, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#ffffff",
+          windowWidth: 800,
+        });
+
+        const imgData = canvas.toDataURL("image/png");
+        const imgWidth = contentWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Check if we need a new page
+        if (addPageBreak && currentY > margin + 5) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        // Check if section fits on current page
+        const remainingHeight = pageHeight - margin - currentY - 10;
+        if (imgHeight > remainingHeight && currentY > margin + 5) {
+          pdf.addPage();
+          currentY = margin;
+        }
+
+        // If section is taller than a full page, split it
+        if (imgHeight > pageHeight - margin * 2) {
+          // Split image across multiple pages
+          let remainingImgHeight = imgHeight;
+          let yOffset = 0;
+
+          while (remainingImgHeight > 0) {
+            const availableHeight = pageHeight - margin - currentY - 10;
+            const sliceHeight = Math.min(remainingImgHeight, availableHeight);
+            const sliceHeightPx = (sliceHeight / imgHeight) * canvas.height;
+            const yOffsetPx = (yOffset / imgHeight) * canvas.height;
+
+            // Create sliced canvas
+            const slicedCanvas = document.createElement("canvas");
+            slicedCanvas.width = canvas.width;
+            slicedCanvas.height = sliceHeightPx;
+            const ctx = slicedCanvas.getContext("2d");
+            ctx.drawImage(
+              canvas,
+              0,
+              yOffsetPx,
+              canvas.width,
+              sliceHeightPx,
+              0,
+              0,
+              canvas.width,
+              sliceHeightPx,
+            );
+
+            const slicedData = slicedCanvas.toDataURL("image/png");
+            pdf.addImage(
+              slicedData,
+              "PNG",
+              margin,
+              currentY,
+              imgWidth,
+              sliceHeight,
+            );
+
+            remainingImgHeight -= sliceHeight;
+            yOffset += sliceHeight;
+
+            if (remainingImgHeight > 0) {
+              pdf.addPage();
+              currentY = margin;
+            }
+          }
+        } else {
+          pdf.addImage(imgData, "PNG", margin, currentY, imgWidth, imgHeight);
+          currentY += imgHeight + 5;
+        }
+
+        document.body.removeChild(container);
+      };
+
+      // ============================================================
+      // 1. COVER / HEADER SECTION
+      // ============================================================
+      const headerHTML = `
+      <div style="text-align: center; padding: 30px 20px; background: linear-gradient(135deg, #003366 0%, #0055a5 100%); color: white; border-radius: 8px; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 28px; font-weight: bold;">AI-Powered Product Intelligence System</h1>
+        <h2 style="margin: 12px 0 0 0; font-size: 20px; font-weight: normal; opacity: 0.95;">Project Analysis Report</h2>
+        <p style="margin: 15px 0 0 0; font-size: 12px; opacity: 0.85;">Generated on ${new Date().toLocaleString()}</p>
+      </div>
+    `;
+      await addSectionToPDF(headerHTML);
+
+      // ============================================================
+      // 2. PROJECT DETAILS SECTION
+      // ============================================================
+      const projectDetailsHTML = `
+      <div style="margin-bottom: 20px;">
+        <h2 style="color: #003366; font-size: 18px; border-bottom: 3px solid #003366; padding-bottom: 8px; margin-bottom: 15px;">1. Project Details</h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr style="background: #f8f9fa;">
+            <td style="padding: 10px; font-weight: bold; width: 30%; border: 1px solid #e0e0e0;">Project Name</td>
+            <td style="padding: 10px; border: 1px solid #e0e0e0;">${project.project_name}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #e0e0e0;">Industry</td>
+            <td style="padding: 10px; border: 1px solid #e0e0e0;">${project.industry || "N/A"}</td>
+          </tr>
+          <tr style="background: #f8f9fa;">
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #e0e0e0;">Business Model</td>
+            <td style="padding: 10px; border: 1px solid #e0e0e0;">${project.business_model || "N/A"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #e0e0e0;">Target Market Size</td>
+            <td style="padding: 10px; border: 1px solid #e0e0e0;">${project.target_market_size || "N/A"}</td>
+          </tr>
+          <tr style="background: #f8f9fa;">
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #e0e0e0;">Budget</td>
+            <td style="padding: 10px; border: 1px solid #e0e0e0;">${formatCurrency(project.budget)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #e0e0e0;">Employees</td>
+            <td style="padding: 10px; border: 1px solid #e0e0e0;">${project.employees_count || "N/A"}</td>
+          </tr>
+          <tr style="background: #f8f9fa;">
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #e0e0e0;">Founder Experience</td>
+            <td style="padding: 10px; border: 1px solid #e0e0e0;">${project.founder_experience_years !== undefined ? project.founder_experience_years + " years" : "N/A"}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; border: 1px solid #e0e0e0;">Submitted Date</td>
+            <td style="padding: 10px; border: 1px solid #e0e0e0;">${project.created_at ? new Date(project.created_at).toLocaleDateString() : "N/A"}</td>
+          </tr>
+        </table>
+        <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-left: 4px solid #003366; border-radius: 4px;">
+          <p style="font-weight: bold; margin: 0 0 8px 0; color: #003366;">Description:</p>
+          <p style="margin: 0; line-height: 1.6; font-size: 13px; color: #333;">${project.description || "No description provided"}</p>
+        </div>
+      </div>
+    `;
+      await addSectionToPDF(projectDetailsHTML);
+
+      // ============================================================
+      // 3. ML PREDICTIONS SECTION
+      // ============================================================
+      if (mlResult) {
+        const mlHTML = `
+        <div style="margin-bottom: 20px;">
+          <h2 style="color: #003366; font-size: 18px; border-bottom: 3px solid #003366; padding-bottom: 8px; margin-bottom: 15px;">2. ML Predictions</h2>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+            <tr>
+              <td style="padding: 15px; text-align: center; background: #e8f5e9; border: 1px solid #c8e6c9; width: 25%;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Success Probability</div>
+                <div style="font-size: 26px; font-weight: bold; color: #00A86B;">${mlResult.success_probability || 0}%</div>
+              </td>
+              <td style="padding: 15px; text-align: center; background: #ffebee; border: 1px solid #ffcdd2; width: 25%;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Overall Risk</div>
+                <div style="font-size: 26px; font-weight: bold; color: #C62828;">${mlResult.overall_risk_score || 0}%</div>
+              </td>
+              <td style="padding: 15px; text-align: center; background: #e3f2fd; border: 1px solid #bbdefb; width: 25%;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Confidence</div>
+                <div style="font-size: 26px; font-weight: bold; color: #1565C0;">${mlResult.confidence_rating || 0}%</div>
+              </td>
+              <td style="padding: 15px; text-align: center; background: #f3e5f5; border: 1px solid #e1bee7; width: 25%;">
+                <div style="font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Prediction</div>
+                <div style="font-size: 22px; font-weight: bold; color: ${mlResult.success_probability >= 50 ? "#00A86B" : "#C62828"};">${mlResult.success_probability >= 50 ? "Viable" : "At Risk"}</div>
+              </td>
+            </tr>
+          </table>
+          <div style="text-align: center; padding: 15px; background: #f5f7fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+            <div style="font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">System Evaluation</div>
+            <div style="font-size: 20px; font-weight: bold; color: #003366;">${mlResult.system_evaluation || "Moderate Potential"}</div>
+          </div>
+        </div>
+      `;
+        await addSectionToPDF(mlHTML);
+      }
+
+      // ============================================================
+      // 4. RISK ASSESSMENT SECTION
+      // ============================================================
+      if (assessment?.risks?.length > 0) {
+        const risksHTML = `
+        <div style="margin-bottom: 20px;">
+          <h2 style="color: #003366; font-size: 18px; border-bottom: 3px solid #003366; padding-bottom: 8px; margin-bottom: 15px;">3. Risk Assessment</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="background: #003366; color: white;">
+                <th style="padding: 10px; text-align: left; border: 1px solid #003366;">Risk Category</th>
+                <th style="padding: 10px; text-align: center; border: 1px solid #003366; width: 80px;">Score</th>
+                <th style="padding: 10px; text-align: center; border: 1px solid #003366; width: 90px;">Priority</th>
+                <th style="padding: 10px; text-align: left; border: 1px solid #003366;">Mitigation Strategy</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${assessment.risks
+                .map(
+                  (risk, idx) => `
+                <tr style="background: ${idx % 2 === 0 ? "#ffffff" : "#f8f9fa"};">
+                  <td style="padding: 10px; font-weight: bold; border: 1px solid #e0e0e0; vertical-align: top;">${risk.risk_category}</td>
+                  <td style="padding: 10px; text-align: center; border: 1px solid #e0e0e0; vertical-align: top; font-weight: bold;">${risk.risk_score || 0}%</td>
+                  <td style="padding: 10px; text-align: center; border: 1px solid #e0e0e0; vertical-align: top;">
+                    <span style="padding: 4px 8px; border-radius: 10px; font-size: 10px; font-weight: bold; background: ${
+                      risk.priority_level === "HIGH" ||
+                      risk.priority_level === "CRITICAL"
+                        ? "#FFEBEE"
+                        : risk.priority_level === "MEDIUM"
+                          ? "#FFF3E0"
+                          : "#E8F5E9"
+                    }; color: ${
+                      risk.priority_level === "HIGH" ||
+                      risk.priority_level === "CRITICAL"
+                        ? "#C62828"
+                        : risk.priority_level === "MEDIUM"
+                          ? "#EF6C00"
+                          : "#2E7D32"
+                    };">${risk.priority_level || "MEDIUM"}</span>
+                  </td>
+                  <td style="padding: 10px; border: 1px solid #e0e0e0; vertical-align: top; line-height: 1.5;">${risk.mitigation_strategy || "N/A"}</td>
+                </tr>
+              `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+        await addSectionToPDF(risksHTML, { addPageBreak: true });
+      }
+
+      // ============================================================
+      // 5. SWOT ANALYSIS SECTION
+      // ============================================================
+      if (
+        swotData.strengths?.length > 0 ||
+        swotData.weaknesses?.length > 0 ||
+        swotData.opportunities?.length > 0 ||
+        swotData.threats?.length > 0
+      ) {
+        const swotHTML = `
+        <div style="margin-bottom: 20px;">
+          <h2 style="color: #003366; font-size: 18px; border-bottom: 3px solid #003366; padding-bottom: 8px; margin-bottom: 15px;">4. SWOT Analysis</h2>
+          
+          <div style="display: table; width: 100%; border-collapse: separate; border-spacing: 10px;">
+            <div style="display: table-row;">
+              <div style="display: table-cell; width: 50%; vertical-align: top; background: #E8F5E9; padding: 15px; border-radius: 8px; border: 2px solid #A5D6A7;">
+                <h3 style="color: #2E7D32; font-size: 15px; margin: 0 0 12px 0;">✓ Strengths</h3>
+                <ul style="padding-left: 18px; margin: 0; font-size: 12px; line-height: 1.7; color: #1B5E20;">
+                  ${swotData.strengths.map((s) => `<li style="margin-bottom: 5px;">${s}</li>`).join("")}
+                </ul>
+              </div>
+              <div style="display: table-cell; width: 50%; vertical-align: top; background: #FFEBEE; padding: 15px; border-radius: 8px; border: 2px solid #EF9A9A;">
+                <h3 style="color: #C62828; font-size: 15px; margin: 0 0 12px 0;">✗ Weaknesses</h3>
+                <ul style="padding-left: 18px; margin: 0; font-size: 12px; line-height: 1.7; color: #B71C1C;">
+                  ${swotData.weaknesses.map((w) => `<li style="margin-bottom: 5px;">${w}</li>`).join("")}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: table; width: 100%; border-collapse: separate; border-spacing: 10px; margin-top: 10px;">
+            <div style="display: table-row;">
+              <div style="display: table-cell; width: 50%; vertical-align: top; background: #E3F2FD; padding: 15px; border-radius: 8px; border: 2px solid #90CAF9;">
+                <h3 style="color: #1565C0; font-size: 15px; margin: 0 0 12px 0;">★ Opportunities</h3>
+                <ul style="padding-left: 18px; margin: 0; font-size: 12px; line-height: 1.7; color: #0D47A1;">
+                  ${swotData.opportunities.map((o) => `<li style="margin-bottom: 5px;">${o}</li>`).join("")}
+                </ul>
+              </div>
+              <div style="display: table-cell; width: 50%; vertical-align: top; background: #FFF8E1; padding: 15px; border-radius: 8px; border: 2px solid #FFE082;">
+                <h3 style="color: #F57F17; font-size: 15px; margin: 0 0 12px 0;">⚠ Threats</h3>
+                <ul style="padding-left: 18px; margin: 0; font-size: 12px; line-height: 1.7; color: #E65100;">
+                  ${swotData.threats.map((t) => `<li style="margin-bottom: 5px;">${t}</li>`).join("")}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          ${
+            swotData.summary
+              ? `
+          <div style="margin-top: 15px; padding: 15px; background: #f3e5f5; border-left: 4px solid #9C27B0; border-radius: 4px;">
+            <p style="font-weight: bold; margin: 0 0 8px 0; color: #6A1B9A;">SWOT Summary:</p>
+            <p style="margin: 0; line-height: 1.6; font-size: 12px; color: #333;">${swotData.summary}</p>
+          </div>
+          `
+              : ""
+          }
+        </div>
+      `;
+        await addSectionToPDF(swotHTML, { addPageBreak: true });
+      }
+
+      // ============================================================
+      // 6. RECOMMENDATIONS SECTION
+      // ============================================================
+      if (
+        recommendations &&
+        (recommendations.recommendations?.length > 0 ||
+          recommendations.improvement_suggestions?.length > 0)
+      ) {
+        // Strategic Summary
+        if (recommendations.summary) {
+          const summaryHTML = `
+          <div style="margin-bottom: 20px;">
+            <h2 style="color: #003366; font-size: 18px; border-bottom: 3px solid #003366; padding-bottom: 8px; margin-bottom: 15px;">5. Strategic Recommendations</h2>
+            <div style="padding: 15px; background: #E8EAF6; border-left: 4px solid #3F51B5; border-radius: 4px;">
+              <p style="font-weight: bold; margin: 0 0 8px 0; color: #283593;">Strategic Summary:</p>
+              <p style="margin: 0; line-height: 1.7; font-size: 13px; color: #333;">${recommendations.summary}</p>
+            </div>
+          </div>
+        `;
+          await addSectionToPDF(summaryHTML, { addPageBreak: true });
+        }
+
+        // Priority Recommendations
+        if (recommendations.recommendations?.length > 0) {
+          for (let i = 0; i < recommendations.recommendations.length; i++) {
+            const rec = recommendations.recommendations[i];
+            const priorityColor =
+              rec.priority === "HIGH" || rec.priority === "high"
+                ? { bg: "#FFEBEE", text: "#C62828", border: "#EF9A9A" }
+                : rec.priority === "MEDIUM" || rec.priority === "medium"
+                  ? { bg: "#FFF3E0", text: "#EF6C00", border: "#FFCC80" }
+                  : { bg: "#E8F5E9", text: "#2E7D32", border: "#A5D6A7" };
+
+            const recHTML = `
+            <div style="margin-bottom: 15px; padding: 15px; background: #ffffff; border: 1px solid #e0e0e0; border-left: 4px solid ${priorityColor.text}; border-radius: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 14px; color: #003366; font-weight: bold; flex: 1;">
+                  ${i + 1}. ${rec.title || `Recommendation ${i + 1}`}
+                </h3>
+                <span style="padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: bold; background: ${priorityColor.bg}; color: ${priorityColor.text}; border: 1px solid ${priorityColor.border}; margin-left: 10px; white-space: nowrap;">
+                  ${(rec.priority || "MEDIUM").toUpperCase()}
+                </span>
+              </div>
+              ${
+                rec.risk_addressed
+                  ? `
+                <p style="margin: 6px 0; font-size: 12px; color: #666;">
+                  <strong style="color: #003366;">Risk Addressed:</strong> ${rec.risk_addressed}
+                </p>
+              `
+                  : ""
+              }
+              ${
+                rec.reasoning
+                  ? `
+                <p style="margin: 8px 0; font-size: 12px; line-height: 1.6; color: #333;">
+                  <strong style="color: #003366;">Reasoning:</strong> ${rec.reasoning}
+                </p>
+              `
+                  : ""
+              }
+              ${
+                rec.action
+                  ? `
+                <div style="background: #F5F5F5; padding: 10px; border-radius: 4px; margin: 10px 0;">
+                  <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #333;">
+                    <strong style="color: #003366;">Action:</strong> ${rec.action}
+                  </p>
+                </div>
+              `
+                  : ""
+              }
+              ${
+                rec.expected_impact
+                  ? `
+                <p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">
+                  <strong style="color: #003366;">Expected Impact:</strong> ${rec.expected_impact}
+                </p>
+              `
+                  : ""
+              }
+            </div>
+          `;
+            await addSectionToPDF(recHTML);
+          }
+        }
+
+        // Improvement Suggestions
+        if (recommendations.improvement_suggestions?.length > 0) {
+          const improvementsHTML = `
+          <div style="margin-top: 20px; margin-bottom: 20px;">
+            <h2 style="color: #003366; font-size: 16px; border-bottom: 2px solid #2196F3; padding-bottom: 6px; margin-bottom: 15px;">Improvement Suggestions</h2>
+            ${recommendations.improvement_suggestions
+              .map(
+                (imp, idx) => `
+              <div style="margin-bottom: 12px; padding: 12px; background: #E3F2FD; border-left: 4px solid #2196F3; border-radius: 4px;">
+                <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #0D47A1;">
+                  ${idx + 1}. ${imp.title || `Improvement ${idx + 1}`}
+                </h4>
+                ${
+                  imp.reasoning
+                    ? `<p style="margin: 4px 0; font-size: 12px; color: #333;"><strong>Reasoning:</strong> ${imp.reasoning}</p>`
+                    : ""
+                }
+                ${
+                  imp.action
+                    ? `<p style="margin: 6px 0; font-size: 12px; color: #333;"><strong>Action:</strong> ${imp.action}</p>`
+                    : ""
+                }
+                ${
+                  imp.expected_impact
+                    ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #666;"><strong>Impact:</strong> ${imp.expected_impact}</p>`
+                    : ""
+                }
+              </div>
+            `,
+              )
+              .join("")}
+          </div>
+        `;
+          await addSectionToPDF(improvementsHTML, { addPageBreak: true });
+        }
+      }
+
+      // ============================================================
+      // Add footers to all pages
+      // ============================================================
+      addFooter();
+
+      // ============================================================
+      // Save the PDF
+      // ============================================================
+      const fileName = `${project.project_name.replace(/[^a-z0-9]/gi, "_")}_Analysis_Report_${new Date().toISOString().split("T")[0]}.pdf`;
+      pdf.save(fileName);
+
+      setToast({
+        message: "✅ PDF downloaded successfully!",
+        type: "success",
+      });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      setToast({
+        message: "Failed to generate PDF. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const formatCurrency = (amount) => {
     const numericAmount = Number(amount);
     if (isNaN(numericAmount) || numericAmount === 0) return "₹0";
@@ -332,6 +842,9 @@ const ProjectAnalysis = () => {
       high: "bg-red-500/20 text-red-400 border-red-500/30",
       medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
       low: "bg-green-500/20 text-green-400 border-green-500/30",
+      HIGH: "bg-red-500/20 text-red-400 border-red-500/30",
+      MEDIUM: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      LOW: "bg-green-500/20 text-green-400 border-green-500/30",
     };
     return colors[priority] || colors["medium"];
   };
@@ -535,27 +1048,27 @@ const ProjectAnalysis = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {!hasAssessment && (
+            {/* Download PDF Button */}
+            {hasAssessment && (
               <button
-                onClick={generateAssessment}
-                disabled={isGenerating}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00F5A0] px-4 py-2.5 text-xs font-extrabold uppercase tracking-[0.15em] text-[#080d19] shadow-[0_8px_25px_rgba(0,245,160,0.25)] transition-all hover:bg-[#00dc8f] disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={handleDownloadPDF}
+                disabled={isDownloading}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#00F5A0]/40 bg-[#00F5A0]/10 px-4 py-2.5 text-xs font-extrabold uppercase tracking-[0.15em] text-[#00F5A0] shadow-[0_8px_25px_rgba(0,245,160,0.15)] transition-all hover:bg-[#00F5A0]/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isGenerating ? (
+                {isDownloading ? (
                   <>
-                    <LoadingSpinner size="sm" color="black" />
-                    <span>Generating...</span>
+                    <FaSpinner className="animate-spin" size={14} />
+                    <span>Preparing...</span>
                   </>
                 ) : (
                   <>
-                    <FaBrain size={14} />
-                    <span>Generate ML Analysis</span>
+                    <FaDownload size={14} />
+                    <span>Download PDF</span>
                   </>
                 )}
               </button>
             )}
-          </div>
-          <div className="flex flex-wrap gap-2">
+
             <button
               onClick={generateAssessment}
               disabled={isGenerating}
@@ -993,9 +1506,7 @@ const ProjectAnalysis = () => {
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* TAB 4: RECOMMENDATIONS (NEW - MILESTONE 3) */}
-        {/* ============================================================ */}
+        {/* Tab Content: Recommendations */}
         {activeTab === "recommendations" && (
           <div className="space-y-6">
             {isLoadingRecommendations ? (
@@ -1008,7 +1519,6 @@ const ProjectAnalysis = () => {
             ) : recommendations &&
               recommendations.recommendations?.length > 0 ? (
               <>
-                {/* Strategic Summary */}
                 <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
                   <div className="mb-4 flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">
@@ -1025,13 +1535,11 @@ const ProjectAnalysis = () => {
                     )}
                   </div>
                   <p className="text-sm leading-relaxed text-[#dfeaf7]">
-                    {/* FIX: Use actual summary from API */}
                     {recommendations.summary ||
                       "Strategic recommendations based on project analysis."}
                   </p>
                 </div>
 
-                {/* Priority Recommendations */}
                 {recommendations.recommendations &&
                   recommendations.recommendations.length > 0 && (
                     <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
@@ -1047,7 +1555,6 @@ const ProjectAnalysis = () => {
                             <div className="mb-3 flex items-start justify-between gap-2">
                               <div>
                                 <h4 className="text-sm font-bold text-white">
-                                  {/* FIX: Use actual title */}
                                   {rec.title || `Recommendation ${index + 1}`}
                                 </h4>
                                 {rec.risk_addressed && (
@@ -1097,7 +1604,6 @@ const ProjectAnalysis = () => {
                     </div>
                   )}
 
-                {/* Improvement Suggestions */}
                 {recommendations.improvement_suggestions &&
                   recommendations.improvement_suggestions.length > 0 && (
                     <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
@@ -1142,7 +1648,6 @@ const ProjectAnalysis = () => {
                     </div>
                   )}
 
-                {/* Mitigation Suggestions */}
                 {recommendations.recommendations &&
                   recommendations.recommendations.length > 0 && (
                     <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-6 shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
@@ -1176,19 +1681,8 @@ const ProjectAnalysis = () => {
                       </div>
                     </div>
                   )}
-
-                {/* Validation Info */}
-                {recommendations.validation && (
-                  <div className="text-center text-xs text-[#7e8ca0]">
-                    {recommendations.validation.valid
-                      ? "✅ Recommendations validated"
-                      : `⚠️ ${recommendations.validation.issues?.join(", ") || "Validation issues"}`}
-                    {recommendations.refined && " (Refined)"}
-                  </div>
-                )}
               </>
             ) : (
-              // Empty state
               <div className="rounded-[28px] border border-[#162032] bg-[#0e1526] p-12 text-center shadow-[0_18px_42px_rgba(8,13,25,0.4)]">
                 <div className="mx-auto max-w-md space-y-4">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-[#21304f] bg-[#141e33] text-[#00F5A0]">

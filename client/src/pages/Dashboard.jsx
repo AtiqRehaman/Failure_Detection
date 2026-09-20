@@ -28,6 +28,7 @@ import {
   FaTimes,
   FaEye,
   FaUndo,
+  FaUserShield,
 } from "react-icons/fa";
 
 // Corelytics UI Vibrant Mint & Cyber Dark Palette
@@ -40,6 +41,8 @@ const CHART_COLORS = [
   "#1DC5D8",
   "#3B82F6",
 ];
+
+const ADMIN_EMAIL = "atiq@gmail.com";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -57,6 +60,13 @@ const Dashboard = () => {
   const [selectedBudgetRange, setSelectedBudgetRange] = useState("all");
   const [selectedDateRange, setSelectedDateRange] = useState("all");
 
+  // Get current user and check if admin
+  const currentUser = useMemo(
+    () => JSON.parse(localStorage.getItem("user") || "{}"),
+    [],
+  );
+  const isAdmin = currentUser.email === ADMIN_EMAIL;
+
   const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
@@ -66,6 +76,7 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      // The backend now automatically filters by user unless admin
       const response = await getProjects();
       const { data } = response;
 
@@ -358,9 +369,26 @@ const Dashboard = () => {
         {/* 1. Header Toolbar */}
         <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Dashboard
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                Dashboard
+              </h1>
+              {isAdmin ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-500/15 text-purple-300 border border-purple-500/30 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                  <FaUserShield size={10} />
+                  Admin Access
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#00F5A0]/10 text-[#00F5A0] border border-[#00F5A0]/30 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                  My Projects
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-[#7e8ca0] mt-1">
+              {isAdmin
+                ? `Viewing all projects across all registered users`
+                : `Viewing your ${projects.length} submitted project${projects.length === 1 ? "" : "s"}`}
+            </p>
           </div>
         </div>
 
@@ -499,11 +527,11 @@ const Dashboard = () => {
 
         {/* 3. Hero Feature Tile + Stat Metric Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Main Hero Card (Inspired by the $120,873 Cyan Revenue Card) */}
+          {/* Main Hero Card */}
           <div className="lg:col-span-5 bg-[#00F5A0] text-[#080d19] rounded-3xl p-6 sm:p-7 flex flex-col justify-between shadow-[0_15px_40px_rgba(0,245,160,0.25)] relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono uppercase tracking-wider font-extrabold text-[#05432d]">
-                Aggregate Capital Scored
+                {isAdmin ? "Aggregate Capital Scored" : "Your Capital Scored"}
               </span>
               <div className="w-8 h-8 rounded-full bg-[#080d19] text-[#00F5A0] flex items-center justify-center font-bold text-xs">
                 ↗
@@ -522,10 +550,10 @@ const Dashboard = () => {
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 rounded-full bg-[#080d19] text-white text-[11px] font-bold">
                 {growthPercentage >= 0 ? "+" : ""}
-                {growthPercentage.toFixed(1)}% YoY
+                {growthPercentage.toFixed(1)}% MoM
               </span>
               <span className="text-[11px] font-bold text-[#05432d]">
-                From {filteredProjects.length} analyzed batches
+                From {filteredProjects.length} analyzed projects
               </span>
             </div>
           </div>
@@ -535,7 +563,7 @@ const Dashboard = () => {
             <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-5 flex flex-col justify-between">
               <div>
                 <span className="text-[10px] font-mono uppercase tracking-wider text-[#6a7b95]">
-                  Active Projects
+                  {isAdmin ? "Total Projects" : "My Projects"}
                 </span>
                 <p className="text-2xl font-extrabold text-white mt-1">
                   {additionalStats.totalProjects}
@@ -736,7 +764,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Average Budget by Industry (Custom Bar Fill style like Corelytics image) */}
+          {/* Average Budget by Industry */}
           <div className="bg-[#0e1526] rounded-3xl border border-[#182338] p-6 space-y-4">
             <h3 className="text-base font-bold text-white">
               Sector Budget Allocation
@@ -780,7 +808,9 @@ const Dashboard = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-base font-bold text-white">
-                Recent Scored Projects (Top 10)
+                {isAdmin
+                  ? "Recent Scored Projects (All Users)"
+                  : "Your Recent Scored Projects"}
               </h3>
               <p className="text-xs text-[#6a7b95]">
                 Click any row to open the instant AI failure analysis report
@@ -861,7 +891,9 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="text-center py-12 text-[#55657f] text-xs">
-              No matching records found. Try adjusting your filters.
+              {isAdmin
+                ? "No projects found in the system yet."
+                : "You haven't submitted any projects yet. Start by submitting your first project!"}
             </div>
           )}
         </div>
